@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SynPro Consulting</title>
+<meta name="description" content="SynPro Consulting — Facilities & Workplace Advisory. Website coming soon." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --blue:#2f6fe0; --blue-deep:#0a3aa0; --green:#3aa80c; --lime:#a1c60c;
+    --ink:#eaf0fb; --muted:#8a97ad; --bg-0:#0a0f1c; --bg-1:#111a2e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:'Sora',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    background:radial-gradient(1100px 640px at 50% -8%, #16223d 0%, var(--bg-1) 40%, var(--bg-0) 100%);
+    color:var(--ink); min-height:100dvh;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:2rem; overflow:hidden; position:relative;
+  }
+  .aura{position:fixed;border-radius:50%;filter:blur(100px);opacity:.30;pointer-events:none;z-index:0;}
+  .aura--blue{width:560px;height:560px;background:var(--blue);top:-200px;left:calc(50% - 440px);}
+  .aura--green{width:560px;height:560px;background:var(--green);bottom:-220px;right:calc(50% - 440px);}
+  .stage{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;animation:rise .9s cubic-bezier(.2,.7,.2,1) both;}
+  .logo-wrap{width:min(360px,74vw);aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 14px 40px rgba(20,60,140,.35));}
+  .logo-wrap img{width:100%;height:100%;object-fit:contain;display:block;}
+  .tagline{
+    margin-top:-.3rem;
+    font-size:clamp(.82rem,1.5vw,1rem);
+    font-weight:500;
+    letter-spacing:.28em;
+    text-transform:uppercase;
+    color:var(--ink);
+    opacity:.9;
+    animation:fade .8s ease .65s both;
+  }
+  .divider{width:0;height:2px;margin:1.9rem 0 1.6rem;background:linear-gradient(90deg,var(--blue) 0%,var(--lime) 100%);border-radius:2px;box-shadow:0 0 18px rgba(90,150,255,.4);animation:draw 1s cubic-bezier(.2,.7,.2,1) .55s both;}
+  .status{font-size:clamp(.98rem,1.2vw,1.08rem);font-weight:500;letter-spacing:.02em;color:var(--ink);animation:fade .8s ease .85s both;}
+  .status .soon{background:linear-gradient(90deg,#5b9bff 0%,var(--lime) 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;font-weight:600;}
+  footer{position:fixed;bottom:1.4rem;left:0;right:0;z-index:1;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);animation:fade .8s ease 1.2s both;}
+  @keyframes rise{from{opacity:0;transform:translateY(18px);}to{opacity:1;transform:translateY(0);}}
+  @keyframes draw{from{width:0;}to{width:min(230px,58vw);}}
+  @keyframes fade{from{opacity:0;}to{opacity:1;}}
+  @media (prefers-reduced-motion:reduce){*{animation:none !important;}.divider{width:min(230px,58vw);}}
+</style>
+</head>
+<body>
+  <div class="aura aura--blue"></div>
+  <div class="aura aura--green"></div>
+  <main class="stage">
+    <div class="logo-wrap"><img src="logo.png" alt="SynPro Consulting" /></div>
+    <p class="tagline">Facilities &amp; Workplace Advisory</p>
+    <div class="divider" role="presentation"></div>
+    <p class="status">Website <span class="soon">coming soon</span></p>
+  </main>
+  <footer>&copy; <span id="yr"></span> SynPro Consulting</footer>
+  <script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
+</body>
+</html>
