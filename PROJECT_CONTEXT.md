@@ -1,213 +1,244 @@
-# SynPro Website — Project Context (Detail)
+# PROJECT_CONTEXT.md — SynPro Consulting Website
 
-> Companion to CLAUDE.md. CLAUDE.md is the session-start summary; this file holds the
-> full detail the prompt template reads: endpoints, structure, ADs (full text), and
-> design standards. Read both at the start of every session.
-
-> Section numbering matches the Fracttal PRM PROJECT_CONTEXT so PROMPT_TEMPLATE.md
-> Section 6 update instructions map 1:1. Sections that do not apply to a static site
-> are marked **N/A (static site)** rather than removed, so the mapping stays intact.
+> Deep implementation reference. `CLAUDE.md` holds the rules and current state; this file holds
+> the detail a session needs to change something without breaking it.
+>
+> Updated in the **same PR** as the change it describes. Sections are numbered and stable — do
+> not renumber them, as prompts reference them by number.
 
 ---
 
-## Section 1 — API Endpoints
+## Table of Contents
 
-**N/A (static site).** This project has no backend and exposes no API endpoints.
-
-The single outbound integration is the contact form, which POSTs to a third-party
-form endpoint (see AD-2). That endpoint is owned and operated by the form vendor, not
-by this project. When the form is built, record here: the vendor, the endpoint URL,
-the public form identifier (safe to expose), and the expected success/error responses.
-
-_Currently: form not yet built._
-
----
-
-## Section 2 — Database Schema
-
-**N/A (static site).** No database, no migrations, no Alembic. There is no persistent
-server-side state in this project. Lead submissions live in the form vendor's system,
-not here.
+1. Endpoints
+2. Content Model
+3. Component & Page Structure
+4. CI/CD Logic
+5. Error Handling Patterns
+6. Architectural Decisions
+7. Design Standards
+8. Appendix — Environment & DNS
 
 ---
 
-## Section 3 — Component / File Structure
+## 1. Endpoints
 
-The site is hand-authored static files served by GitHub Pages from `main` `/root`
-(AD-1). There is no framework and no build output directory.
+The site is static. Exactly one endpoint exists.
 
-**Current repo root:**
+### `POST` contact form — Cloudflare Worker
 
-```
-/
-├── index.html          # holding page: inline CSS, Sora webfont, no build step
-├── logo.png            # transparent SynPro logo (blue→green swirl mark)
-├── CNAME               # contains: synproconsulting.co  (AD-3 — do not remove)
-├── CLAUDE.md           # canonical
-├── CLAUDE_HISTORY.md   # canonical
-├── PROJECT_CONTEXT.md  # canonical (this file)
-├── RUNBOOK.md          # canonical
-└── PROMPT_TEMPLATE.md  # governs Claude chat as prompt author
-```
+*Not yet implemented. This section is filled in by the sprint that builds it.*
 
-**Planned structure** (to be realised across sprints — update this tree as pages land):
-
-```
-/
-├── index.html          # home
-├── services.html       # Facilities & Workplace Advisory
-├── about.html
-├── contact.html        # lead-capture form (AD-2)
-├── assets/
-│   ├── css/site.css    # single shared stylesheet — brand tokens as :root vars (AD-8)
-│   ├── js/site.js      # small vanilla JS: mobile nav, form UX, shared-chrome includes
-│   └── img/            # logo variants, og image, favicon set
-├── CNAME
-└── (canonical docs + template as above)
-```
-
-Shared chrome (header/footer/nav) is duplicated across pages or assembled with small
-vanilla-JS includes — never a templating engine (AD-1).
+Required detail once built: URL, request schema (name, company, message, enquiry type),
+validation rules, response shapes for success / validation failure / rate limit / spam rejection,
+CORS allowlist, rate limit key and window, honeypot mechanism, and what is logged versus what is
+returned to the visitor (see AD-8 in `CLAUDE.md`).
 
 ---
 
-## Section 4 — Auth / Roles
+## 2. Content Model
 
-**N/A (static site).** No authentication, no roles, no sessions. The site is fully
-public. The GitHub repository is public (see the secrets Hard Rule in CLAUDE.md).
+*Populated when Astro content collections are scaffolded.*
 
----
-
-## Section 5 — Deployment
-
-- **Host:** GitHub Pages, repo `synproconsulting/synpro-website`, branch `main`, `/root`.
-- **Custom domain:** `synproconsulting.co`, pinned by the root `CNAME` file (AD-3).
-- **DNS (Namecheap):** four GitHub apex `A` records
-  (`185.199.108.153` / `.109.153` / `.110.153` / `.111.153`) + `www` CNAME →
-  `synproconsulting.github.io`. HTTPS enforced (GitHub-issued TLS).
-- **Deploy trigger:** merge to `main` — GitHub Pages redeploys automatically. No build.
-- **DNS boundary:** website DNS changes touch ONLY those five records. The domain's
-  mail records (MX → Exchange Online, SPF, DKIM selector1/selector2, DMARC `p=reject`,
-  the `send.contact` Resend records, autodiscover) are off-limits to this project
-  (Hard Rule, CLAUDE.md).
-
-Full operational detail, including rollback, lives in RUNBOOK.md.
+Record here: each collection, its schema, where its source copy lives, and which pages consume
+it. The intent is that a content edit never requires reading component code to find out where a
+string is rendered.
 
 ---
 
-## Section 6 — Architectural Decisions (full text)
+## 3. Component & Page Structure
 
-> CLAUDE.md carries the one-line summary of each AD; the authoritative
-> Decision / Why / Consequence / Do-not text lives here.
+*Populated as pages and components are built.*
 
-### AD-1 · Static, hand-authored site — no build step, no framework
-**Decision.** The site is plain HTML/CSS/JS served directly by GitHub Pages from
-`main` `/root`. No bundler, framework, `node_modules`, or Jekyll.
-**Why.** Zero build means the deployed artifact is exactly what is in the repo:
-nothing to break in a pipeline, instant deploys, and CI stays a lint/link/Lighthouse
-check rather than a build-and-bundle.
-**Consequence.** Shared markup (header/footer/nav) is duplicated across pages or
-assembled with small vanilla-JS includes, not a templating engine. Any interactivity
-is vanilla JS.
-**Do not.** Introduce React/Vue/Svelte/Vite/Jekyll or any build tooling without a
-superseding AD — it changes the Pages deployment model and the CI shape.
-
-### AD-2 · Lead capture uses a third-party form endpoint — no backend
-**Decision.** The contact / lead-capture form POSTs to a third-party endpoint
-(Formspree or Web3Forms; final vendor chosen in the sprint that builds the form).
-**Why.** A static site cannot process a form server-side; a third-party relay avoids
-standing up and securing a backend purely to receive form submissions.
-**Consequence.** The form's public identifier (e.g. a Formspree form ID) lives in the
-client HTML — public-by-design and safe in a public repo. Spam mitigation is the
-vendor's honeypot/captcha plus a client-side honeypot field. Submissions live in the
-vendor's dashboard, not in this repo.
-**Do not.** Put any secret key in the markup, and do not add a backend service to
-handle the form without a superseding AD.
-
-### AD-3 · Custom domain pinned by the repo `CNAME` file
-**Decision.** `synproconsulting.co` is bound to GitHub Pages by the root `CNAME` file
-plus the four apex `A` records and `www` CNAME at Namecheap.
-**Why.** The `CNAME` file is the repo-side half of the custom-domain binding. Without
-it, Pages reverts to the `github.io` URL and the custom-domain HTTPS certificate
-breaks.
-**Consequence.** Every PR must preserve `CNAME`. Site DNS changes touch only the four
-`A` records and `www` CNAME — never mail records.
-**Do not.** Let any tooling or GitHub UI operation strip the file; if it disappears,
-restore it immediately.
-
-### AD-4 · Jira sprints tracked via fix versions, not native Agile sprints
-**Decision.** Sprints assigned via Jira's `fixVersions`; JQL dual-queries
-`fixVersion = {fix_id} OR sprint = {native_id}`.
-**Why / Consequence / Do not.** Carried unchanged from Fracttal PRM AD-4 — same Jira
-instance and workflow. See that project's PROJECT_CONTEXT for the original rationale.
-
-### AD-5 · All GitHub operations use the REST API
-**Decision.** Branches, commits, and PRs are created via the GitHub Contents API and
-Git Trees API over HTTP — no `git` binary for repo mutations.
-**Why.** Keeps the Dev Agent's actions auditable and reproducible without a local
-git dependency.
-**Consequence.** The local `git` commands in CLAUDE.md Hard Rules are for the
-human-run working-tree sync only, not for repo mutations.
-**Do not.** Shell out to `git push`/`git commit` as the Dev Agent.
-
-### AD-6 · Feature branches recreated from `main`, never updated in place
-**Decision.** Before creating a branch, delete any existing branch of the same name
-and recreate fresh from the latest `main` SHA.
-**Why.** Guarantees clean diffs and avoids drift from stale branches.
-**Do not.** Reuse or rebase an existing same-named branch.
-
-### AD-7 · Accessibility and performance are acceptance criteria
-**Decision.** Every page ticket includes semantic landmarks, alt text on all imagery,
-sufficient contrast on the dark theme, keyboard-navigable interactive elements, a
-`prefers-reduced-motion` path for animation, and a Lighthouse pass (perf + a11y) as a
-done-check.
-**Why.** A marketing site is judged on first impression and must be reachable by
-everyone; the dark palette makes contrast a genuine risk.
-**Consequence.** CI runs Lighthouse CI; a page failing contrast or shipping un-alt'd
-images is not done.
-**Do not.** Defer accessibility to "later" — it is a per-ticket gate.
-
-### AD-8 · Brand tokens defined once as CSS custom properties
-**Decision.** The palette, gradients, and type scale are declared as `:root` CSS
-variables in the single shared stylesheet and referenced everywhere.
-**Why.** Keeps the swirl/dark identity consistent as pages multiply; makes a future
-rebrand a one-file change.
-**Do not.** Hardcode raw hex values per element.
+Record here: the page inventory with route and purpose, the shared layout and what it owns
+(head/meta, nav, footer), and each reusable component with the props it takes.
 
 ---
 
-## Section 7 — Frontend Design Standards
+## 4. CI/CD Logic
 
-**Brand tokens (canonical — declared as `:root` vars per AD-8):**
+### Job summary
 
-| Token | Value |
-|---|---|
-| Deep blue | `#00257B` / `#064DAF` |
-| Forest green | `#1E8801` |
-| Lime | `#A1C60C` |
-| Background base | `#0a0f1c` |
-| Background mid | `#111a2e` |
-| Background warm top | `#16223d` |
-| Ink (text) | `#eaf0fb` |
-| Muted | `#8a97ad` |
-| Typeface | **Sora** (400 / 500 / 600) |
+*Populated when `ci.yml` is written in Sprint 1.*
 
-**Visual language:**
-- Dark background with a top-anchored radial gradient (base → mid → warm top).
-- The logo's blue→green swirl is the core motif; ambient auras (blue upper-left,
-  green lower-right) may frame hero sections — kept subtle.
-- Dividers and accent lines use a blue→lime linear gradient.
-- The tagline **FACILITIES & WORKPLACE ADVISORY** is set uppercase with wide letter-
-  spacing, echoing the "CONSULTING" treatment in the logo mark.
-- Generous whitespace; content weighted slightly above centre on full-height sections.
+Must record: every job, its trigger condition, whether it blocks, and what it does — matching the
+table in `CLAUDE.md`. The blocking list here and the auto-merger's configured check names must be
+kept identical; a drift between them means either the merger blocks forever or merges on nothing.
 
-**Layout & interaction standards** (extend as pages land):
-- Mobile-first; every page works from ~360px up.
-- One shared header/footer treatment across all pages.
-- Animations respect `prefers-reduced-motion`.
-- Interactive elements are keyboard-reachable with visible focus states.
-- Imagery carries meaningful `alt`; decorative imagery is `alt=""`/`aria-hidden`.
+### Deploy
+
+GitHub Pages, published from the build artifact on `main`. Note the `CNAME` passthrough
+requirement (AD-9) wherever the build output directory is configured.
+
+### Auto-merger
+
+Ported from `synproconsulting/Fracttal-PRM` `.github/workflows/ci.yml`. Record any adaptation
+made during the port so the two can be reconciled later if the shared pattern evolves.
 
 ---
 
-*Last updated: 2026-08 — initial scaffolding, pre-Sprint-1.*
+## 5. Error Handling Patterns
+
+*Populated when the Worker is built.*
+
+The governing principle is AD-8: the visitor-facing response never reveals delivery state or
+upstream provider detail. Record the exact response bodies and status codes here so future
+changes stay consistent.
+
+---
+
+## 6. Architectural Decisions
+
+Full text for each AD summarised in `CLAUDE.md`. Each entry uses the four-part form below.
+
+### AD-1 · Static site, single dynamic surface
+
+**Decision.** The site is statically generated and CDN-served. Exactly one dynamic capability
+exists: the contact form.
+
+**Why.** A brochure site with a contact form does not need a runtime. Every dynamic surface added
+is a permanent security, cost, and maintenance obligation on a property that otherwise has none.
+
+**Consequence.** No database, no auth, no sessions. Anything requiring server state is a scope
+decision, not an implementation detail.
+
+**Do not.** Add a second dynamic endpoint without explicit scope confirmation from the owner.
+
+### AD-2 · All GitHub operations use the REST API — no git CLI for repo mutations
+
+*Inherited from Fracttal PRM AD-2.*
+
+**Decision.** Branches, commits, trees, and PRs are created via the GitHub Contents and Git Trees
+APIs. The local git CLI is used only for pre-flight and post-flight working-tree sync.
+
+**Why.** Removes dependence on local git state and credential configuration for the operations
+that matter.
+
+**Consequence.** The local working tree is a read surface, not the source of truth. It must be
+hard-reset at both ends of every session.
+
+**Do not.** Push branches from the CLI — the working tree and `origin` will silently diverge.
+
+### AD-3 · Feature branches are always recreated from `main`, never updated in place
+
+*Inherited from Fracttal PRM AD-3.*
+
+**Decision.** Delete any existing branch of the same name, then recreate from the latest `main`
+SHA.
+
+**Why.** Guarantees a clean diff and prevents a stale branch carrying unrelated commits.
+
+**Do not.** Rebase or merge `main` into a feature branch — recreate it.
+
+### AD-4 · Jira sprints tracked via fix versions AND native Agile sprints
+
+*Inherited from Fracttal PRM AD-4.*
+
+**Decision.** Both fields are set on every Story; JQL dual-queries them.
+
+**Why.** Fix versions give a durable release grouping; native sprints drive the board. Neither
+alone catches every ticket.
+
+**Do not.** Query on one field only — tickets will be missed at closeout.
+
+### AD-5 · Sub-tasks inherit fix version and sprint from their parent
+
+*Inherited from Fracttal PRM AD-10.*
+
+**Decision.** Never set fix version or sprint on a Sub-task issue directly.
+
+**Why.** Jira returns HTTP 400. The dual-query surfaces subtasks via parent membership anyway.
+
+### AD-6 · Non-blocking CI jobs run with `continue-on-error: true`
+
+*Inherited from Fracttal PRM AD-7.*
+
+**Decision.** Advisory jobs never gate the auto-merger.
+
+**Why.** A quality signal that can block a merge becomes a quality signal that gets disabled.
+
+**Consequence.** An advisory job can fail indefinitely without anyone noticing — on Fracttal PRM,
+SonarCloud failed on every run for twenty-plus sprints. Review advisory job health at each sprint
+closeout, or don't add the job.
+
+### AD-7 · Email delivery is Resend over HTTPS; SMTP is never used
+
+*Inherited from Fracttal PRM AD-47.*
+
+**Decision.** The Worker calls `POST https://api.resend.com/emails` with a Bearer API key. Sender
+domain `contact.synproconsulting.co` (already verified); destination `info@synproconsulting.co`.
+
+**Why.** The domain is verified and in use; SMTP was proven permanently blocked on the sibling
+projects' host and is a dead path generally for this pattern.
+
+**Do not.** Introduce an SMTP client or `SMTP_*` configuration in any form.
+
+### AD-8 · The form endpoint never reveals delivery state
+
+*Adapted from Fracttal PRM AD-13.*
+
+**Decision.** Transport failures are logged server-side and returned to the visitor as a generic
+failure. Success, rate-limit, and spam-rejection responses are indistinguishable in shape.
+
+**Why.** An enquiry form is an unauthenticated public endpoint. Differentiated responses give an
+abuser a working oracle for tuning around the controls.
+
+**Do not.** Return an upstream status code, provider error, or "message flagged as spam" text.
+
+### AD-9 · `CNAME` is a build artifact, not a repo-root file
+
+**Decision.** `CNAME` lives in the static passthrough directory (`public/`) and is published with
+every build.
+
+**Why.** GitHub Pages reads the custom domain from the published artifact. Under an
+Actions-based deploy the artifact is the build output, not the repo root.
+
+**Consequence.** If `CNAME` is missing from a build, the custom domain silently unconfigures and
+the live site goes down.
+
+**Do not.** Delete it, move it, or add it to `.gitignore`.
+
+---
+
+## 7. Design Standards
+
+*Populated when the visual design is established.*
+
+Record here: type scale, colour tokens, spacing scale, breakpoints, logo usage and clear space,
+button and link treatments, and the accessibility floor (contrast ratios, focus states, reduced
+motion). The intent is that a future page looks like it belongs without anyone re-deriving the
+system.
+
+> The Fracttal PRM design standards (`fp-card`, `fp-table`, its status-badge palette) are an
+> internal application's system and deliberately **not** inherited here.
+
+---
+
+## 8. Appendix — Environment & DNS
+
+### Secrets
+
+| Name | Location | Notes |
+|---|---|---|
+| `RESEND_API_KEY` | Cloudflare Worker secret store | Never in the repo, never in CI, never in chat |
+| Classic GitHub PAT | Local `.env` | Shared across the `synproconsulting` org |
+
+### DNS — `synproconsulting.co` at Namecheap
+
+| Type | Host | Value |
+|---|---|---|
+| A | `@` | `185.199.108.153` |
+| A | `@` | `185.199.109.153` |
+| A | `@` | `185.199.110.153` |
+| A | `@` | `185.199.111.153` |
+| CNAME | `www` | `synproconsulting.github.io.` |
+
+Plus mail and verification records — MX, SPF, DMARC, DKIM, the Microsoft `MS=` TXT, and the
+Resend verification records. **These are load-bearing. Never bulk-edit this zone.**
+
+The apex A record IPs are GitHub's published Pages addresses. Verify against GitHub's current
+documentation before changing them rather than trusting this table.
+
+---
+
+*Created: 2026-08-06 — project bootstrap, pre-Sprint-1.*

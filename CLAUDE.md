@@ -1,48 +1,45 @@
-# SynPro Website — Project Context
+# SynPro Consulting Website — Project Context
 
 > This file is the single source of truth for Claude Code and Claude chat sessions.
 > Load it at the start of every session to restore full project context.
-
-> Sprint history lives in CLAUDE_HISTORY.md (created at first sprint closeout).
+>
+> Sprint history lives in `CLAUDE_HISTORY.md`. Operational procedure lives in `RUNBOOK.md`.
+> Deep implementation reference lives in `PROJECT_CONTEXT.md`. Prompt structure is governed
+> by `PROMPT_TEMPLATE.md`.
 
 ---
 
 ## What This Project Is
 
-The public marketing website for SynPro Consulting — a static, statically-hosted site presenting the firm's Facilities & Workplace Advisory practice and capturing inbound leads via a contact form. Built and maintained by the same AI-powered Virtual Development Team model used for Fracttal PRM: Claude Code as the Dev Agent, a rule-based auto-merger as the Manager Agent, and direct Jira REST API calls for sprint setup.
+The public marketing website for SynPro Consulting at **https://synproconsulting.co**. A static
+site with exactly one dynamic surface: a contact form that delivers an enquiry email to
+`info@synproconsulting.co`.
+
+Built and maintained by the SynPro AI-powered Virtual Development Team pattern — Claude chat
+for planning and prompt authoring, Claude Code as the Dev Agent, a rule-based auto-merger in
+`ci.yml` as the Manager Agent, and direct Jira REST API calls for sprint setup.
 
 **Owner:** Johan Wessels — SynPro Consulting
 **Started:** August 2026
-**Preferred model for Claude Code development sessions:** Claude Sonnet 5 (`claude-sonnet-5`) — use this model for all development sessions unless a specific sprint's planning session explicitly selects another.
+
+**Current state:** Pre-Sprint-1. A single-page placeholder (logo + "coming soon") is live at
+`synproconsulting.co`, served by GitHub Pages from the `main` branch root of
+`synproconsulting/synpro-website`. DNS is configured at Namecheap (four GitHub Pages apex A
+records + `www` CNAME) and TLS is issued. No build step, no CI, no canonical docs in the repo
+yet — Sprint 1 establishes all three.
 
 ---
 
-## Current State
+## Live Deployment
 
-**Deployed:** a single-page holding site is live at `https://synproconsulting.co`, served by GitHub Pages from repo `synproconsulting/synpro-website` (branch `main`, `/root`). It renders a dark, gradient landing page — SynPro logo (transparent PNG), the tagline **FACILITIES & WORKPLACE ADVISORY**, a blue→green divider, and a "Website coming soon" line. Custom domain wired via four GitHub apex `A` records + a `www` CNAME at Namecheap; HTTPS enforced (GitHub-issued TLS). A `CNAME` file in the repo root pins the custom domain.
-
-**Files at repo root:** `index.html` (self-contained: inline CSS, Sora webfont via Google Fonts, no build step), `logo.png` (transparent), `CNAME` (contains `synproconsulting.co`).
-
-**Not yet built:** the full multi-section marketing site, the contact / lead-capture form, and the supporting CI + docs scaffolding. This is the work the first sprints will deliver.
-
-**Brand tokens (from the live page — treat as canonical):**
-- Deep blue `#00257B` / `#064DAF`, forest green `#1E8801`, lime `#A1C60C`
-- Dark background gradient: base `#0a0f1c`, mid `#111a2e`, warm top `#16223d`
-- Ink text `#eaf0fb`, muted `#8a97ad`
-- Typeface: **Sora** (400/500/600)
-- Motif: the logo's blue→green swirl; auras (blue upper-left, green lower-right)
-
----
-
-## Live Deployments
-
-| Service | URL |
+| Surface | URL |
 |---|---|
 | Production site | https://synproconsulting.co |
 | GitHub Pages origin | https://synproconsulting.github.io/synpro-website/ |
-| Repository | https://github.com/synproconsulting/synpro-website |
+| Contact form endpoint | `form.synproconsulting.co` *(Cloudflare Worker — not yet created)* |
 
-> Hosting is GitHub Pages (static). There is no backend service, no database, and no Railway deployment for this project. Lead capture is handled by a third-party form endpoint (see AD-2).
+> There is no staging environment. **`main` is production.** A merge to `main` publishes to the
+> live public domain within roughly a minute. See the Hard Rules below.
 
 ---
 
@@ -50,42 +47,25 @@ The public marketing website for SynPro Consulting — a static, statically-host
 
 > These rules are non-negotiable and apply to every session and every change — no exceptions.
 
-**Never commit directly to `main`.** All changes — including single-line fixes, copy edits, and documentation updates — must go through a `feature/` or `fix/` branch, a pull request, the CI pipeline, and the auto-merger. Committing directly to `main` bypasses the audit trail and CI gates. If a direct-to-main commit is ever made by mistake, open a retroactive PR immediately.
+**`main` is production — there is no staging.** Unlike the sibling Fracttal PRM and SynPro VSDC
+projects, a merge here publishes directly to a live public domain under the company's own name.
+Every PR must build green before merge, and any change that could take the site down (build
+config, DNS-adjacent files, the placeholder cutover) must be verified on the
+`synproconsulting.github.io/synpro-website/` origin URL before the custom domain follows it.
 
-**Never delete or alter the `CNAME` file except through a deliberate, reviewed domain change.** The repo-root `CNAME` file contains `synproconsulting.co` and is what binds GitHub Pages to the custom domain. GitHub rewrites/removes it on some UI operations; every PR must preserve it. If it goes missing, the custom domain and HTTPS break until it is restored.
+**Never commit directly to `main`.** All changes — including single-line fixes, content edits,
+and documentation updates — must go through a `feature/`, `fix/`, or `docs/` branch, a pull
+request, the CI pipeline, and the auto-merger. If a direct-to-main commit is ever made by
+mistake, open a retroactive PR immediately.
 
-**Never touch DNS mail-authentication records when changing the site.** The site's DNS lives alongside the domain's mail records at Namecheap (MX → Exchange Online, SPF, DKIM `selector1`/`selector2`, DMARC `p=reject`, the `send.contact` Resend records, autodiscover). Website changes only ever concern the four GitHub apex `A` records and the `www` CNAME. A change to the site must never add, remove, or edit any mail record. (If a site change ever appears to require a DNS edit, stop and confirm in chat first.)
+**One PR at a time — no exceptions.** Before opening any PR, verify zero PRs are currently open
+via the GitHub API. If any PR is open, wait for it to merge.
 
-**The repository is PUBLIC — never commit a secret.** No API keys, form-endpoint secrets, access tokens, analytics private keys, or credentials of any kind may enter the repo. Anything sensitive is either a public-by-design identifier (e.g. a Formspree form ID, which is safe to expose) or is injected at deploy time — never hardcoded. Before any commit that adds a config value, confirm it is safe to be world-readable.
-
-**No build step without an explicit, reviewed decision (see AD-1).** The site is hand-authored static files served directly by GitHub Pages. Do not introduce a bundler, framework, or `node_modules`-based build (React, Vite, Jekyll, etc.) without a new AD recording the decision — a build step changes the Pages deployment model and the CI shape.
-
-**`PAT_TOKEN`, not `GITHUB_TOKEN`, for any `workflow_dispatch`.** GitHub blocks the built-in `GITHUB_TOKEN` from dispatching workflows. Any workflow-dispatch API call must use `PAT_TOKEN`.
-
-**Never run two Claude Code instances simultaneously on this project.** Concurrent instances produce race conditions, duplicate PRs, and split-brain Jira state.
-
-**Claude Code is the Dev Agent — all GitHub operations go through the REST API (no `git` binary required for repo mutations); do not invoke agent scripts directly.**
-
-**The rule-based auto-merger is the Manager Agent.** PRs merge automatically when all blocking CI checks pass. Do not invoke manager scripts directly.
-
-**Sprint setup is performed directly via Jira API calls.** Fix-version creation, native sprint creation, ticket assignment, execution order, story points, and priority are all done via direct Jira REST calls. No PM Agent scripts.
-
-**One PR at a time — no exceptions.** Before opening any PR, verify zero PRs are currently open via the GitHub API. If one is open, wait for it to merge.
-
-**Before opening any fix PR for a bug found during the current sprint, create a Jira bug ticket first**, assigned to the current sprint (fix version + native sprint), referenced in the PR title as `fix(SWEB-XX): description`. No fix PR without a corresponding ticket.
-
-**Jira ticket lifecycle:** transition to In Progress before implementation; leave In Progress when the PR opens; transition to Done only when the PR is merged to `main` and confirmed by the auto-merger. Never Done on PR open.
-
-**Canonical docs travel in the same PR as the change that caused them.** CLAUDE.md, CLAUDE_HISTORY.md, and PROJECT_CONTEXT.md must be updated in the same branch and PR as the implementation change. If a PR changes content structure, page routes, the form, or the deployment shape, it is incomplete until the canonical docs reflect it. The only exception is a pure docs PR with no code change (e.g. adding an AD).
-
-**When Claude Code flags a discrepancy at the end of its output, resolve it in the current PR — never defer.**
-
-**Claude chat must follow `PROMPT_TEMPLATE.md` when generating Claude Code prompts.** That file defines the mandatory prompt structure (pre-flight sync, zero-PR check, canonical-doc reads, source-file reads, implementation, docs update, PR rules, closeout report, post-flight sync). CLAUDE.md governs Claude Code as Dev Agent; PROMPT_TEMPLATE.md governs Claude chat as prompt author.
-
-**Every Claude Code session starts with a clean working tree pulled from `main`.** Before starting:
+**Every Claude Code session must start with a clean working tree pulled from main.** Before
+running `claude --dangerously-skip-permissions`, execute in order:
 
 ```cmd
-cd "C:\Johan\SynPro Consulting\SynPro Website"
+cd "C:\Johan\SynPro Consulting\Website\Website Development"
 git fetch origin
 git status
 git checkout main
@@ -93,63 +73,296 @@ git reset --hard origin/main
 git clean -fd --exclude=Documentation/
 ```
 
-This discards untracked/modified files from a prior session and aligns exactly with `origin/main`, preserving the local-only `Documentation/` folder. `git pull` alone is insufficient — it does not remove untracked files.
+`git pull origin main` alone is **not** sufficient — it does not remove untracked files left by
+a prior session.
 
-**Every Claude Code session ends with a post-flight sync after the final PR merges:**
+**Every Claude Code session must end with a post-flight sync after the final PR merges.**
 
 ```cmd
-cd "C:\Johan\SynPro Consulting\SynPro Website"
+cd "C:\Johan\SynPro Consulting\Website\Website Development"
 git fetch origin
 git reset --hard origin/main
 git clean -fd --exclude=Documentation/
 ```
 
-**Never run `git clean -fd` without `--exclude=Documentation/`.** The repo-root `Documentation/` folder is untracked but canonical (RUNBOOK.md, sprint prompts, brand assets, source logos). A bare `git clean -fd` would delete it, including the prompt being executed.
+The post-flight sync is not optional — a session that ends without it leaves stale files that
+corrupt the next session's pre-flight read.
+
+**Never run `git clean -fd` without `--exclude=Documentation/`.** The repo-root `Documentation/`
+folder is untracked but canonical — it holds every sprint's Claude Code prompt, PR body files,
+and reference material. A bare `git clean -fd` deletes all of it, including the prompt currently
+being executed.
+
+**`CNAME` must survive every build.** GitHub Pages resolves the custom domain from a `CNAME` file
+in the *published artifact*. Once the site builds via GitHub Actions, the published artifact is
+the build output directory — not the repo root. `CNAME` must live in the framework's static
+passthrough directory (e.g. `public/CNAME`) so it is copied into every build. If `CNAME` is
+absent from the artifact, `synproconsulting.co` silently reverts to unconfigured and the site
+goes down. Never delete it, never move it out of the passthrough directory.
+
+**Never touch mail-related DNS records.** The Namecheap zone for `synproconsulting.co` carries
+MX, SPF, DMARC, DKIM, the Microsoft `MS=` verification TXT, and the Resend verification records.
+Company email and the contact form both depend on them. Any DNS change is additive and
+surgical — never a clean sweep, never a bulk delete.
+
+**Canonical docs must travel in the same PR as the code change that caused them.** `CLAUDE.md`,
+`CLAUDE_HISTORY.md`, `PROJECT_CONTEXT.md`, and `RUNBOOK.md` must be updated in the same branch
+and same PR as the implementation change. No deferred docs PRs. A PR that changes behaviour,
+structure, or configuration is incomplete until the four canonical docs reflect it. The only
+exception is a pure docs PR with no accompanying code change.
+
+**Claude chat must follow `PROMPT_TEMPLATE.md` when generating Claude Code prompts.** That file
+defines the mandatory nine-section structure every prompt must contain. It governs Claude chat
+as prompt author; this file governs Claude Code as Dev Agent. Different audiences — no
+duplication.
+
+**Every generated Claude Code prompt must declare its model in the header.** Default:
+`claude-sonnet-5`.
+
+**The contact-form secret never enters the repository.** `RESEND_API_KEY` lives only in the
+Cloudflare Worker's secret store. It must never appear in client-side code, in a committed
+file, in a CI variable visible to the static build, or in any chat interface.
+
+**Runtime controls on the form endpoint must be verified live, not only in CI.** Rate limiting,
+CORS enforcement, and honeypot rejection all depend on the real request path through Cloudflare's
+edge. A control can pass its unit tests and be completely inert in production. After any change
+to the Worker deploys, exercise the control against the live endpoint before marking the ticket
+Done. (Carried from Fracttal PRM AD-46 / FPRM-460, where a rate limiter was green in CI and
+never engaged in production for weeks.)
+
+**Never run two Claude Code instances simultaneously on this project.** Concurrent instances
+produce race conditions, duplicate PRs, and split-brain Jira state.
+
+**Claude Code is the Dev Agent.** It implements all tickets directly. No agent scripts are
+invoked programmatically.
+
+**The rule-based auto-merger is the Manager Agent.** PRs merge automatically when all blocking
+CI checks pass. Do not invoke manager agent scripts directly.
+
+**Sprint setup is performed directly via Jira REST API calls from Claude Code** — fix version
+creation, native sprint creation, ticket creation, execution order, story points, priority.
+
+**Jira ticket lifecycle: transition to In Progress before starting implementation.** Leave In
+Progress when the PR is opened. Transition to Done only when the PR is merged to `main` and
+confirmed by the auto-merger. Never transition to Done on PR open.
+
+**Before opening any fix PR for a bug discovered during the current sprint, create a Jira bug
+ticket first.** Assign it to the current sprint (fix version + native sprint). Reference the key
+in the PR title: `fix(SWEB-XX): description`.
+
+**When Claude Code flags a discrepancy at the end of its output, resolve it in the current
+action — never defer to a follow-up.**
+
+**`package.json` and the lockfile are critical files.** Read existing content before modifying.
+Never remove an existing dependency — only append. Commit the lockfile with every dependency
+change.
 
 ---
 
 ## Key Architectural Decisions
 
-These are conscious design choices that must not be accidentally reversed. Full Decision / Why / Consequence / Do-not text lives in PROJECT_CONTEXT.md Section 6.
+Full Decision / Why / Consequence / Do-not text lives in `PROJECT_CONTEXT.md` Section 6.
+Inherited decisions carried from the Fracttal PRM programme are noted as such.
 
-### AD-1 · Static, hand-authored site — no build step, no framework
-The site is plain HTML/CSS/JS served directly by GitHub Pages from `main` `/root`. No bundler, no framework, no `node_modules`, no Jekyll. **Why:** zero build means the deployed artifact is exactly what is in the repo — nothing to break in a pipeline, instant deploys, and CI stays a lint/link-check rather than a build. **Consequence:** shared markup (header/footer/nav) is duplicated across pages or assembled with small vanilla-JS includes, not a templating engine. **Do not** introduce React/Vue/Vite/Jekyll without a superseding AD.
+### AD-1 · Static site, single dynamic surface
+The site is statically generated and served from a CDN. Exactly one dynamic capability exists:
+the contact form. No database, no authentication, no server-side session state. Any proposal
+that introduces a second dynamic surface is a scope decision requiring explicit confirmation,
+not an implementation detail.
 
-### AD-2 · Lead capture uses a third-party form endpoint — no backend
-A static site cannot process a form server-side, so the contact / lead-capture form POSTs to a third-party endpoint (Formspree or Web3Forms; final vendor chosen in the sprint that builds the form). **Why:** avoids standing up and securing a backend purely for form relay. **Consequence:** the form's public identifier (e.g. Formspree form ID) lives in the client HTML — this is public-by-design and safe in a public repo; spam mitigation is the vendor's honeypot/captcha plus a client honeypot field. **Do not** put any secret key in the markup, and do not add a backend service to handle the form without a superseding AD.
+### AD-2 · All GitHub operations use the REST API — no git CLI for repo mutations
+*(Inherited — Fracttal PRM AD-2.)* Branches, commits, trees, and PRs are created via the GitHub
+Contents and Git Trees APIs over HTTP. The local git CLI is used only for the pre-flight and
+post-flight working-tree sync.
 
-### AD-3 · Custom domain is pinned by the repo `CNAME` file
-`synproconsulting.co` is bound to GitHub Pages by the root `CNAME` file plus the four apex `A` records and `www` CNAME at Namecheap. **Why:** the `CNAME` file is the repo-side half of the custom-domain binding; without it Pages reverts to the `github.io` URL and HTTPS breaks. **Consequence:** every PR must preserve `CNAME`; DNS changes for the site touch only the four `A` records and `www` CNAME, never mail records. **Do not** let any tooling strip the file.
+### AD-3 · Feature branches are always recreated from `main`, never updated in place
+*(Inherited — Fracttal PRM AD-3.)* Delete any existing branch of the same name and recreate from
+the latest `main` SHA, guaranteeing clean diffs.
 
-### AD-4 · Jira sprints tracked via fix versions, not native Agile sprints
-Sprints are assigned via Jira's `fixVersions` field; JQL must dual-query `fixVersion = {fix_id} OR sprint = {native_id}` to catch all tickets. (Carried from Fracttal PRM AD-4 — same Jira instance and workflow.)
+### AD-4 · Jira sprints are tracked via fix versions AND native Agile sprints
+*(Inherited — Fracttal PRM AD-4.)* Both are set on every Story. JQL must dual-query
+`fixVersion = {fix_id} OR sprint = {native_id}` to catch all tickets.
 
-### AD-5 · All GitHub operations use the REST API
-Branches, commits, and PRs are created via the GitHub Contents API and Git Trees API over HTTP — no `git` binary required for repo mutations. (The local `git` commands in Hard Rules are for the human-run working-tree sync only.)
+### AD-5 · Sub-tasks inherit fix version and sprint from their parent
+*(Inherited — Fracttal PRM AD-10.)* Setting them on the Sub-task issue itself returns HTTP 400.
+The dual-query still surfaces subtasks via parent membership.
 
-### AD-6 · Feature branches are always recreated from `main`, never updated in place
-Before creating a branch, delete any existing branch of the same name and recreate fresh from the latest `main` SHA, guaranteeing clean diffs.
+### AD-6 · Non-blocking CI jobs run with `continue-on-error: true`
+*(Inherited — Fracttal PRM AD-7.)* Only the blocking check list gates the auto-merger. Advisory
+jobs (performance/accessibility audits, deploy) must never block a merge — but must also never be
+allowed to fail silently forever. See the Known Issues note on SonarCloud in the Fracttal PRM
+docs for the failure mode this guards against.
 
-### AD-7 · Accessibility and performance are acceptance criteria, not afterthoughts
-Every page ticket includes: semantic HTML landmarks, alt text on all imagery, sufficient colour contrast against the dark theme, keyboard-navigable interactive elements, a `prefers-reduced-motion` path for any animation, and a Lighthouse pass (performance + a11y) as a done-check. **Why:** a marketing site is judged on first impression and must be reachable by everyone; the dark palette makes contrast a real risk. **Do not** ship a page that fails contrast or ships un-alt'd images.
+### AD-7 · Email delivery is Resend over HTTPS; SMTP is never used
+*(Inherited — Fracttal PRM AD-47.)* The contact form posts to the Cloudflare Worker, which calls
+`POST https://api.resend.com/emails` with a Bearer `RESEND_API_KEY`. The verified sender domain
+is `contact.synproconsulting.co`; the destination is `info@synproconsulting.co`. Never introduce
+`smtplib`, an SMTP client, or `SMTP_*` configuration in any form.
 
-### AD-8 · Brand tokens are defined once as CSS custom properties
-The palette, gradients, and type scale in "Current State" are declared as `:root` CSS variables in a single shared stylesheet (or shared `<style>` include) and referenced everywhere — never hardcoded per element. **Why:** keeps the swirl/dark identity consistent as pages multiply and makes a future rebrand a one-file change. **Do not** paste raw hex values into individual pages.
+### AD-8 · The form endpoint never returns an error that reveals delivery state
+*(Adapted from Fracttal PRM AD-13, "email notifications never raise".)* A transport failure to
+Resend is logged and surfaced to the visitor as a generic failure message — never as an upstream
+error, status code, or provider detail. The visitor-facing response is the same shape whether
+delivery succeeded, was rate-limited, or was rejected as spam.
+
+### AD-9 · `CNAME` is a build artifact, not a repo-root file
+Once the site builds via Actions, `CNAME` lives in the static passthrough directory and is
+published with every build. See the matching Hard Rule.
 
 ---
 
-## Backlog
+## Repository
 
-> Candidate work for future sprints. Not committed until assigned a fix version.
+- **GitHub org:** `synproconsulting`
+- **Repo:** `synpro-website`
+- **Default branch:** `main`
+- **Branch naming:** `feature/sweb-{ticket}-{slug}`, `fix/sweb-{ticket}-{slug}`, or
+  `docs/sweb-{ticket}-{slug}`
 
-- **Site structure & shared chrome** — home, services (Facilities & Workplace Advisory), about, contact; shared header/footer/nav, mobile nav.
-- **Contact / lead-capture form** (AD-2) — fields, validation, honeypot, success/error states, vendor wiring, thank-you state.
-- **CI pipeline** — HTML validation, link checker, Lighthouse CI (a11y + perf), auto-merger blocking-check set.
-- **Content pass** — real copy for the advisory practice; replace "coming soon" with the live home page.
-- **Fracttal PRM showcase** — if the site should present the PRM/CMMS capability as a product line.
-- **SEO & metadata** — titles, descriptions, Open Graph/Twitter cards, `sitemap.xml`, `robots.txt`, favicon set.
-- **Analytics** — privacy-respecting analytics (no secret keys in-repo).
-- **Legal** — privacy notice / cookie handling if analytics or the form collect personal data.
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Site framework | Astro *(to be scaffolded in Sprint 1)* |
+| Hosting | GitHub Pages — custom domain `synproconsulting.co` |
+| DNS / registrar | Namecheap |
+| Contact form endpoint | Cloudflare Worker *(to be created)* |
+| Email delivery | Resend HTTPS API — sender domain `contact.synproconsulting.co` |
+| Task tracking | Jira Cloud — `synproconsulting.atlassian.net`, project key `SWEB` (board 100) |
+| Source control | GitHub — `synproconsulting/synpro-website` |
+| CI/CD | GitHub Actions |
+
+> **Not used on this project:** Railway, PostgreSQL, Alembic, FastAPI, the shared Control Centre.
+> The Control Centre integration is deliberately out of scope — this project is managed directly
+> from Jira and GitHub.
+
+---
+
+## Project Structure (target — Sprint 1 outcome)
+
+```
+synpro-website/
+├── src/
+│   ├── pages/            # Astro routes — one file per page
+│   ├── layouts/          # Shared page shell (nav, footer, head)
+│   ├── components/       # Reusable sections
+│   └── content/          # Markdown content collections
+├── public/
+│   ├── CNAME             # CRITICAL — custom domain; must survive every build
+│   └── assets/           # Logo, images, favicon
+├── worker/               # Cloudflare Worker — contact form endpoint
+│   ├── src/
+│   └── test/
+├── .github/
+│   └── workflows/
+│       └── ci.yml        # Build, checks, auto-merger, Pages deploy
+├── CLAUDE.md
+├── CLAUDE_HISTORY.md
+├── PROJECT_CONTEXT.md
+├── RUNBOOK.md
+├── PROMPT_TEMPLATE.md
+└── README.md
+```
+
+> `Documentation/` sits at the repo root, is untracked, and is canonical. Never `git clean` it.
+
+---
+
+## Jira Configuration
+
+| Setting | Value |
+|---|---|
+| Site | `synproconsulting.atlassian.net` |
+| Project key | `SWEB` |
+| Jira board ID | `100` |
+| Execution order field | `customfield_10071` *(verify present on SWEB screens)* |
+| Story points field | `customfield_10016` *(verify present on SWEB screens)* |
+| Sprint fix version IDs | *(populated as sprints are created)* |
+| Native sprint IDs | *(populated as sprints are created)* |
+
+**Sprint query pattern:**
+```python
+jql = f"project = SWEB AND (fixVersion = {fix_id} OR sprint = {native_id})"
+```
+
+> These two custom field IDs are site-level and shared with the FPRM project, but screen
+> configuration is per-project. Confirm both are on the SWEB create/edit screens before the first
+> sprint setup — a missing field fails the ticket create with a cryptic 400.
+
+---
+
+## CI/CD Pipeline
+
+Blocking and non-blocking jobs are defined in `.github/workflows/ci.yml`. The auto-merger's
+blocking check list must exactly match the jobs marked blocking below — **if the list is empty or
+stale, the auto-merger merges on nothing.**
+
+| Stage | What it does | Blocking? |
+|---|---|---|
+| Build | Astro production build succeeds | Yes |
+| Lint | Formatting and markup checks | Yes |
+| Link check | No broken internal links in the build output | Yes |
+| Worker tests | Unit tests for the contact-form endpoint | Yes |
+| Accessibility / performance audit | Advisory quality signal | No |
+| Deploy | Publish build artifact to GitHub Pages (`main` only) | No |
+
+> **Porting note:** the rule-based auto-merger job is carried over from
+> `synproconsulting/Fracttal-PRM` `.github/workflows/ci.yml`. Read that file before writing this
+> one; adapt the blocking check names to the jobs above. Do not write a new auto-merger from
+> scratch.
+
+---
+
+## Secrets and Environment
+
+| Secret | Where it lives | Purpose |
+|---|---|---|
+| `GITHUB_TOKEN` | Provided automatically by Actions | Pages deploy |
+| `RESEND_API_KEY` | Cloudflare Worker secret store **only** | Email delivery |
+| Classic GitHub PAT | Local `.env` only | Claude Code branch/PR operations |
+
+The existing classic PAT (repo + workflow scope) used for Fracttal PRM works across every repo in
+the `synproconsulting` org. No new token is required.
+
+**Never paste any credential into a chat interface.** Tokens go directly into `.env` or the
+provider's secret store, edited manually.
+
+---
+
+## Key Conventions
+
+- **Commit format:** `feat(sweb-XX): description` (conventional commits)
+- **PR title format:** `feat(SWEB-XX): description` / `fix(SWEB-XX): description`
+- **Story points:** Fibonacci — 1, 2, 3, 5, 8 (max 8 per story)
+- **Execution order:** `customfield_10071` — determines implementation sequence
+- **Acceptance criteria:** written in Atlassian Document Format in Jira descriptions
+- **PR bodies:** always built from a file (`--body-file`), never an inline shell string
+
+---
+
+## Known Issues / Technical Debt
+
+*None yet — this section is populated as the project runs. Active items only; historical
+follow-ups live in `CLAUDE_HISTORY.md`.*
+
+- **Cloudflare Worker not yet created.** The contact form has no endpoint. Until Sprint 1 (or
+  whichever sprint takes it), the site has no working contact path.
+- **Repo already contains canonical docs committed directly to `main`** (uploaded 2026-08-03, before this doc set existed). Their content must be reconciled against this version before Sprint 1.
+- **No `README.md` in the repo.** GitHub shows the "Add a README" prompt; add one in Sprint 1.
+- **Repo is public.** GitHub Pages on a free plan requires it. Nothing in these docs is sensitive, but every future commit is world-readable — never commit a secret, an internal contact, or client-identifying material.
+- **Site currently deploys from branch root, not from a build.** Switching to an Actions-based
+  deploy is a Sprint 1 task and carries the `CNAME` risk described in the Hard Rules.
+
+---
+
+## Backlog (do not implement without explicit scope confirmation)
+
+- Analytics and the cookie/privacy notice it would require
+- Blog or case-study content collection
+- Multi-language content
+- Any second dynamic surface (see AD-1)
 
 ---
 
@@ -157,11 +370,7 @@ The palette, gradients, and type scale in "Current State" are declared as `:root
 
 - **Claude Code** — Dev Agent for all implementation
 - **Atlassian Rovo MCP** — available for direct Jira management from Claude chat
-- **GitHub REST API** — all repo mutations (branches, commits, PRs)
 
 ---
 
-## Jira
-
-- **Project key:** `SWEB` _(placeholder — confirm or create the Jira project before the first sprint; update this line and every `SWEB-XX` reference to the real key)._
-- Ticket references in PR titles use conventional commits: `feat(SWEB-XX): …`, `fix(SWEB-XX): …`, `docs(SWEB-XX): …`.
+*Created: 2026-08-06 — project bootstrap, pre-Sprint-1.*
