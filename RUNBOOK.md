@@ -371,8 +371,9 @@ checks each step's exit/HTTP status and fails loudly, then read the log back to 
 
 ### Advisory job health *(carried)*
 
-Non-blocking jobs can fail forever unnoticed — on Fracttal PRM, SonarCloud failed on every run for
-twenty-plus sprints. Check advisory job status at each sprint closeout, or don't add the job.
+Non-blocking jobs can fail forever unnoticed — on Fracttal PRM, the SonarCloud scan fails on every
+CI run and is carried as known technical debt. Check advisory job status at each sprint closeout,
+or don't add the job.
 
 ---
 
@@ -399,10 +400,25 @@ Project persist. A file generated in chat and never uploaded is gone at the sess
 
 The canonical copies live in the **GitHub repo**. The Claude Project copies are reference copies
 for planning sessions. After every sprint that updates them via PR, re-upload to the Claude
-Project. On Fracttal PRM the project-knowledge copies routinely ran several PRs behind the repo,
-which meant planning sessions reasoned from a stale picture of the system.
+Project. If they drift, planning sessions reason from a stale picture of the system.
 
-Do this at the session boundary, as part of closeout — not "later".
+Do this at the session boundary, as part of closeout — not "later". *(Source: FPRM `RUNBOOK.md`
+§9, "Keeping Files in Sync".)*
+
+### Citing the source when carrying a lesson across projects *(added SWEB-7)*
+
+Much of this runbook is inherited from Fracttal PRM. When you carry a lesson, decision, or
+anecdote across from another project, **cite the file it came from** — e.g. *"FPRM
+`PROJECT_CONTEXT.md` §6 AD-4"* or *"FPRM `CLAUDE_HISTORY.md`, Post-Sprint 20 entry"* — so a future
+session can re-verify it in one step instead of taking it on trust.
+
+Two rules follow from SWEB-7, where three inherited claims turned out to be wrong:
+
+1. **Read the source before writing the claim.** Do not reconstruct another project's history from
+   memory. All three defects were plausible-sounding and entirely invented.
+2. **Never carry a quantity you have not seen in writing.** Durations and counts ("twenty-plus
+   sprints", "four PRs") are the most common fabrications and the most quotable — they propagate
+   into later docs as fact. If the source states no number, state no number.
 
 ---
 
@@ -425,9 +441,13 @@ Do this at the session boundary, as part of closeout — not "later".
 
 ---
 
-*Last updated: 2026-08-06 — Sprint 1 (SWEB-1 … SWEB-6, PRs #1 and #2): local dev commands (§6),
-SWEB field IDs and screen-verification procedure (§7), auto-merger check names, `PAT_TOKEN`
-requirement, the control-liveness negative test (§8), and how to determine which deploy path is
-actually serving (§3).*
+*Last updated: 2026-08-06 — SWEB-7 (PR #4): corrected the SonarCloud claim in §8 (invented duration
+removed), removed an unverified FPRM claim from §9, and added §9 guidance on citing the source file
+when carrying a lesson across projects.*
+
+*Previously: 2026-08-06 — Sprint 1 (SWEB-1 … SWEB-6, PRs #1–#3): local dev commands (§6), SWEB
+field IDs and screen-verification procedure (§7), auto-merger check names, `PAT_TOKEN` requirement,
+the control-liveness negative test (§8), and how to determine which deploy path is actually serving
+(§3).*
 *Update this file whenever a new operational lesson is learned — do not let lessons live only in
 chat transcripts.*

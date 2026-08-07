@@ -22,6 +22,8 @@ for planning and prompt authoring, Claude Code as the Dev Agent, a rule-based au
 **Owner:** Johan Wessels — SynPro Consulting
 **Started:** August 2026
 
+**Last PR merged:** #4 (SWEB-7 — canonical doc corrections; docs only, no behaviour change).
+
 **Current state:** Sprint 1 complete. The build pipeline is established. The same single-page
 placeholder (logo + "coming soon") a visitor saw before Sprint 1 is still what they see — it is
 now produced by an Astro build rather than served as a raw file. `package.json`, `astro.config.mjs`,
@@ -192,9 +194,12 @@ post-flight working-tree sync.
 *(Inherited — Fracttal PRM AD-3.)* Delete any existing branch of the same name and recreate from
 the latest `main` SHA, guaranteeing clean diffs.
 
-### AD-4 · Jira sprints are tracked via fix versions AND native Agile sprints
-*(Inherited — Fracttal PRM AD-4.)* Both are set on every Story. JQL must dual-query
-`fixVersion = {fix_id} OR sprint = {native_id}` to catch all tickets.
+### AD-4 · Jira sprints are tracked via fix versions, not native Agile sprints
+*(Inherited — Fracttal PRM AD-4.)* The fix version is the tracking mechanism; sprint IDs map to
+Jira versions pre-created before each sprint. **Consequence:** JQL must dual-query
+`fixVersion = {fix_id} OR sprint = {native_id}`, because neither field alone is reliable. On SWEB
+both fields are populated so tickets also appear on board 100 — that does not make them co-equal
+mechanisms. Full text in `PROJECT_CONTEXT.md` §6.
 
 ### AD-5 · Sub-tasks inherit fix version and sprint from their parent
 *(Inherited — Fracttal PRM AD-10.)* Setting them on the Sub-task issue itself returns HTTP 400.
