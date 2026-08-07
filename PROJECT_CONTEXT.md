@@ -127,9 +127,9 @@ exactly `synproconsulting.co`. This is the enforcement point for AD-9 — the in
 otherwise fail silently and take the live domain down. It runs after `npm run build` and before
 the artifact upload, so a bad artifact is never produced.
 
-`public/CNAME` is 19 bytes with **no trailing newline**, byte-identical to the root `CNAME`. The
-assertion strips whitespace, so a trailing newline would not fail it — but keep them identical
-anyway so the two copies can be compared by hash during the Sprint 2 cleanup.
+`public/CNAME` is 19 bytes with **no trailing newline** and is now the only copy in the repo — the
+root duplicate was deleted in Sprint 2 (SWEB-9) after both were confirmed to share blob SHA
+`b35b949d`. The assertion strips whitespace, so a trailing newline would not fail it.
 
 ### Link checking
 
@@ -165,33 +165,17 @@ source switch; that prediction was wrong (SWEB-6). `actions/configure-pages@v6` 
 first merge, and `synproconsulting.co` has served the build artifact since — verified by fetching
 the live HTML and finding it byte-equal to local `dist/index.html`.
 
-**The stored Pages setting disagrees with what is serving.** `GET /repos/.../pages` reports:
+**The stored Pages setting now matches.** The owner set Settings → Pages → Source to "GitHub
+Actions" after Sprint 1 closed. Observed 2026-08-07: `GET /repos/.../pages` reports
+`build_type: workflow`, `cname: synproconsulting.co`, `status: built`, `https_enforced: true`.
 
-```
-build_type: legacy      source: { branch: main, path: / }
-```
-
-…while the content served is the Actions artifact. Two consequences:
-
-1. **`build_type` is not a reliable indicator of the active deploy path.** To determine which path
-   is serving, fetch the live HTML and compare it to `dist/index.html`. The branch-root
-   `index.html` and the built one differ substantially in size, so the comparison is unambiguous.
-2. **GitHub still runs its stock `pages build and deployment` workflow on every push to `main`,
-   and it fails.** That workflow is the legacy Jekyll builder. It is not part of `ci.yml`, cannot
-   be edited from this repo, and is triggered purely by `build_type: legacy`.
-
-   It has been failing since **before Sprint 1** — commit `0a91a1c`, the untouched pre-sprint
-   `main`, failed at 2026-08-06T20:42Z. Last green legacy build: 2026-08-03. Sprint 1 did not cause
-   it.
-
-   Because the Jekyll build fails at the *build* step, it never uploads an artifact and its deploy
-   step is skipped. It therefore **cannot** overwrite the Actions deployment. The observed steady
-   state is one green `CI` run and one red `pages build and deployment` run per push to `main`,
-   with the site correctly served from the Actions artifact throughout.
-
-   Switching the source to "GitHub Actions" retires the legacy builder and removes the red run.
-   Until then the root `index.html`, `logo.png`, and `CNAME` are retained as a fallback, and
-   removing them stays gated on that switch.
+**Durable lesson — `build_type` is not a reliable indicator of the active deploy path.** This
+outlived the condition that produced it and is the reason the check below is written down rather
+than inferred. Through Sprint 1 the API reported `build_type: legacy` / `source: main/` while the
+Actions artifact was demonstrably what visitors received. The field describes the *stored setting*,
+not the live delivery path, and the two can disagree in either direction. To determine which path
+is serving, fetch the live HTML and compare it against the build output — see `RUNBOOK.md` §3 for
+the exact comparison. Do not answer the question from `build_type` alone.
 
 The job stays `continue-on-error: true` so it can never block the auto-merger (AD-6) — which per
 AD-6's own consequence note means it can also fail unnoticed. Check it at every closeout.
@@ -349,6 +333,33 @@ Actions-based deploy the artifact is the build output, not the repo root.
 the live site goes down.
 
 **Do not.** Delete it, move it, or add it to `.gitignore`.
+
+### AD-10 · The site is crawler-locked until the cutover PR
+
+**Decision.** `public/robots.txt` disallows all user agents from all paths for the entire duration
+of the build programme. It lives in `public/` so the Astro static passthrough copies it verbatim
+into `dist/` on every build, exactly as `CNAME` is handled under AD-9. The lockout is lifted
+**only** in the cutover PR — in the same commit that publishes the nav and the real Home page.
+
+**Why.** The owner has confirmed a build-everything-then-cut-over-once strategy: pages are built
+and merged across several sprints, but the navigation and real Home page go live in one later PR.
+Because `main` is production, every page merged before that cutover is publicly fetchable at its
+route the moment it merges, whether or not anything links to it. **Unlinked is not private** —
+crawlers find routes through means other than in-site links, and this repository is public, so the
+routes are readable in source regardless. Without the lockout, half-built pages are indexable under
+the company's own name.
+
+**Consequence.** Nothing on the site is indexable until the cutover, which is the intended state,
+but it makes the cutover PR carry two responsibilities rather than one: publish the nav and Home
+page, *and* lift the lockout. Shipping the cutover without lifting it leaves a finished site that
+no search engine will index — a silent failure with no visible symptom on the page itself. This is
+scaffolding with a defined removal point, not a permanent setting.
+
+**Do not.** Add `@astrojs/sitemap` or any sitemap generation while the lockout is in place — a
+sitemap advertising disallowed routes is contradictory and defeats the purpose. Do not substitute
+a `noindex` meta tag: it asks a crawler not to *index* a page it has already *fetched*, and the
+concern here is fetching. Do not treat the file as permanent, and do not lift it in an earlier PR
+"to get it out of the way".
 
 ---
 

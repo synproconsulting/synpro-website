@@ -86,7 +86,7 @@ them:
 
 ## Sprint 1 — Bootstrap: Astro Scaffold, CI Pipeline, Actions Deploy  ·  2026-08-06
 
-**PRs merged:** #1, #2 (SWEB-6 correction)
+**PRs merged:** #1, #2, #3 (#2 and #3 are both SWEB-6 corrections)
 **Fix version / native sprint:** `11066` / `1039`
 **Jira keys:** SWEB-1 … SWEB-6
 **Blocking CI checks at close:** `build`, `format`, `links`
@@ -230,4 +230,96 @@ None. AD-4 was corrected, not replaced — its number and meaning are unchanged 
 
 ---
 
-*Next entry: Sprint 2.*
+## Sprint 2 — Foundations and Housekeeping  ·  2026-08-07
+
+**PRs merged:** #5
+**Fix version / native sprint:** `11099` / `1072`
+**Jira keys:** SWEB-8 … SWEB-10
+**Blocking CI checks at close:** `build`, `format`, `links`
+**Live site state at close:** Visually unchanged. A visitor sees the same placeholder — same logo,
+tagline, divider, "coming soon" wording, colours, and animations — and the delivery path did not
+change either: `synproconsulting.co` continues to serve the Actions artifact. Two things are new
+but invisible on the page. `https://synproconsulting.co/robots.txt` now returns a disallow-all
+directive, so the site is closed to crawlers until the cutover (AD-10). And the legacy branch-root
+`index.html`, `logo.png`, and `CNAME` are gone — the custom domain and HTTPS survived their
+removal, verified on the `github.io` origin URL first and then on the apex.
+
+### What landed
+
+- **SWEB-8** — `public/robots.txt` added, disallowing all user agents from all paths. It sits in
+  the static passthrough so it is copied verbatim into `dist/` on every build, exactly as `CNAME`
+  is under AD-9. No sitemap integration was added; a sitemap advertising disallowed routes would
+  contradict the lockout. AD-10 recorded in `PROJECT_CONTEXT.md` §6 and summarised in `CLAUDE.md`.
+- **SWEB-9** — Legacy branch-root `index.html`, `logo.png`, and `CNAME` deleted. Gated on the Pages
+  API reporting `build_type: workflow`, which it did. Both root files were confirmed byte-identical
+  to their `public/` counterparts by blob SHA before removal (`CNAME` `b35b949d`, `logo.png`
+  `4e38674d`), so the deletion could not lose content. `CNAME` now exists in exactly one place, as
+  AD-9 always intended.
+- **SWEB-10** — Canonical docs reconciled with post-flip reality. The Pages-setting contradiction
+  and the failing legacy Jekyll builder were both moved from live Known Issues to a new **Resolved**
+  subsection in `CLAUDE.md`, in the past tense. `PROJECT_CONTEXT.md` §4's disagreement block was
+  replaced by the durable lesson it produced. `RUNBOOK.md` gained the repo-root parking hazard
+  (§6 and §10) and two entries in the §9 required-files list. The Sprint 1 PR-number error in this
+  file was corrected against the API, and `RUNBOOK.md` §8's expected link count was corrected from
+  2 to 3 after measurement.
+
+### ADs recorded
+
+- **AD-10 · The site is crawler-locked until the cutover PR.** `public/robots.txt` disallows every
+  user agent for the duration of the build programme, and is lifted **only** in the cutover PR, in
+  the same commit that publishes the nav and the real Home page.
+
+### Lessons
+
+1. **The canonical docs disagreed with each other about a fact both of them recorded.**
+   `CLAUDE_HISTORY.md` said Sprint 1 merged PRs #1 and #2; `RUNBOOK.md`'s footer said #1–#3. The
+   API settled it: **four PRs have ever merged — #1, #2, #3, #4** — of which #1–#3 were Sprint 1
+   (`#2` and `#3` both SWEB-6 corrections) and `#4` was SWEB-7. `RUNBOOK.md` was right and
+   `CLAUDE_HISTORY.md` was wrong, having omitted #3. This file exists so a future session can
+   reconstruct state *without* reading diffs, which is exactly what makes a wrong number in it a
+   defect rather than a cosmetic issue. Two docs recording the same fact independently is how the
+   disagreement became visible at all — but only an API query could resolve it.
+2. **A one-off `git clean` exclusion is a signal to move the file, not to keep the flag.** The
+   first Sprint 2 pre-flight carried `--exclude=files.zip` to protect an untracked archive. The
+   archive turned out to hold six stale duplicates of docs already tracked in the repo — nothing
+   worth protecting. The same clean deleted `BIO_SOURCE.md`, three logo PNGs, and a `.pptx` from
+   the repo root; originals existed elsewhere, so nothing was lost, but by luck rather than design.
+   Recorded in `RUNBOOK.md` §6: source material lives outside the working directory, and the only
+   safe places inside it are tracked, `Documentation/`, or `.gitignore`.
+3. **A sprint can be blocked by a missing input rather than a missing capability.** The first
+   attempt at this sprint stopped at the Section 1 gate because
+   `Documentation\SWEB_Sprint2_Jira_Tickets.md` had not been saved into `Documentation/`. The gate
+   worked as designed — the alternative was Claude Code authoring ticket content it was explicitly
+   told to transcribe. `PROMPT_TEMPLATE.md` §5a is what made this a clean stop instead of six
+   invented tickets.
+4. **Retire a resolved Known Issue by rewriting it, not by deleting it.** Both the Pages-setting
+   contradiction and the failing legacy builder cost real diagnostic time. Deleting them outright
+   would leave a future session that encounters a trace of either — an old log, a stale comment —
+   with no record that the question was already settled. They were moved to a **Resolved**
+   subsection with the evidence that closed them, and the *lesson* each produced was kept in the
+   live docs: `build_type` still does not tell you which deploy path is serving.
+5. **Verify a retirement, do not assume it.** The claim "the source flip retires the legacy Jekyll
+   builder" was a prediction in the Sprint 1 docs. It was checked before being written as fact:
+   pushes to `main` for `17f2433`, `4abf377`, and `19fb7b8` each triggered a red
+   `pages build and deployment` run, and the next push (`d41545e`) triggered none. That is the
+   observation the past-tense rewrite rests on — Sprint 1 lesson 6 applied to Sprint 1's own text.
+6. **A documented "expected" number is only as good as the last time someone measured it.**
+   `RUNBOOK.md` §8 recorded the link checker's expected count as **2** ("the page and `logo.png`"),
+   omitting the emitted stylesheet. Measured this sprint: **3**, both with and without the new
+   `robots.txt`. The number is load-bearing — that same section tells a future session to read an
+   unexpectedly low count as evidence the check has gone inert, so a stale expectation turns a
+   healthy check into a phantom regression, or hides a real one. Corrected to 3, with a note that
+   it changes whenever a page, image, or stylesheet is added. This is the same failure shape as
+   the SWEB-7 fabricated quantities, arrived at honestly: nobody invented the 2, it was simply
+   never re-measured.
+7. **A local `format:check` failure is not automatically a defect.** Running it on Windows flags
+   six files — including four this sprint never touched — because `core.autocrlf=true` gives the
+   working tree CRLF while the repo stores LF and Prettier defaults to `endOfLine: "lf"`. CI runs
+   on Linux and is green. The practical rule that follows: **never build a commit from the Windows
+   working tree's bytes.** This sprint's blobs were pushed from LF content fetched via the Contents
+   API, not read off disk, which is what kept the diff to real changes instead of a whole-file
+   line-ending rewrite.
+
+---
+
+*Next entry: Sprint 3.*
