@@ -93,6 +93,39 @@ The actual work. Clearly scoped, one task at a time where possible. Each task sp
 - No DNS instructions. DNS is a manual owner task, never a Claude Code task.
 - `RESEND_API_KEY` never enters the repository, CI, or any committed file.
 
+#### 5a — Jira ticket creation requires an owner-approved tickets document (MANDATORY)
+
+Any prompt that instructs Claude Code to **create Jira tickets** must reference a separately
+authored, owner-approved tickets document — `SWEB_Sprint<n>_Jira_Tickets.md` — and instruct Claude
+Code to **transcribe** it.
+
+Claude Code must never author ticket content. Specifically, it does not invent:
+
+- ticket summaries
+- descriptions
+- acceptance criteria
+- story points
+- priority
+- execution order
+
+All six are specified in the tickets document and confirmed with the owner **in chat, before the
+execution prompt is written**. The prompt says *create the stories per the tickets document*; it
+does not restate the tickets, and it never delegates their authoring.
+
+**Why.** The tickets document is the owner's approval gate on scope. A prompt that supplies only a
+summary table and tells the agent to write its own acceptance criteria removes that gate — the
+agent then defines what "done" means for work the owner has not reviewed at that granularity.
+
+**Precedent.** Carried from Fracttal PRM, which maintains tickets documents as planning artefacts
+authored in a planning session before execution (`FPRM_Phase<n>_Jira_Tickets.md`, listed in FPRM
+`RUNBOOK.md` §9 as required Claude Project files). FPRM's naming is phase-based because that
+project plans in phases; SWEB plans in sprints, hence `SWEB_Sprint<n>_Jira_Tickets.md`.
+
+> **Known deviation — Sprint 1.** The Sprint 1 prompt supplied a five-row summary table and
+> instructed Claude Code to write its own acceptance criteria from the implementation detail. This
+> requirement did not exist at the time. Sprint 1 is recorded as a deviation, **not a precedent** —
+> do not cite it as justification for skipping the tickets document.
+
 ---
 
 ### SECTION 6 — Canonical docs update (MANDATORY — same PR as code)

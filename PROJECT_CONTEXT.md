@@ -269,16 +269,29 @@ SHA.
 
 **Do not.** Rebase or merge `main` into a feature branch — recreate it.
 
-### AD-4 · Jira sprints tracked via fix versions AND native Agile sprints
+### AD-4 · Jira sprints tracked via fix versions, not native Agile sprints
 
-*Inherited from Fracttal PRM AD-4.*
+*Inherited from Fracttal PRM AD-4 — verified against FPRM `PROJECT_CONTEXT.md` §6.*
 
-**Decision.** Both fields are set on every Story; JQL dual-queries them.
+**Decision.** Tickets are assigned to sprints using Jira's `fixVersions` field. Sprint IDs map to
+Jira versions pre-created before each sprint. The fix version is the tracking mechanism; the
+native Agile sprint is not.
 
-**Why.** Fix versions give a durable release grouping; native sprints drive the board. Neither
-alone catches every ticket.
+**Why.** Fix versions are simpler to create and query programmatically and do not require board
+access configuration.
 
-**Do not.** Query on one field only — tickets will be missed at closeout.
+**Consequence.** A dual JQL query is always needed — `fixVersion = {fix_id} OR sprint = {native_id}`
+— because neither field alone is reliable. Always pre-create the fix version manually and verify it
+before sprint setup.
+
+**Do not.** Query on one field only — tickets will be missed at closeout. Do not read the dual
+query as evidence that the two fields are co-equal tracking mechanisms: it is a defensive
+consequence of the fix-version decision, not a second mechanism.
+
+> **SWEB practice note.** Sprint 1 populated *both* `fixVersions` and the native sprint field
+> (`customfield_10020`) on every Story, because board 100 is a Scrum board and the sprint field is
+> what makes tickets appear on it. That is compatible with this AD — the fix version remains the
+> authoritative grouping, and setting the sprint as well is what makes the dual query resolve.
 
 ### AD-5 · Sub-tasks inherit fix version and sprint from their parent
 
@@ -297,8 +310,8 @@ alone catches every ticket.
 **Why.** A quality signal that can block a merge becomes a quality signal that gets disabled.
 
 **Consequence.** An advisory job can fail indefinitely without anyone noticing — on Fracttal PRM,
-SonarCloud failed on every run for twenty-plus sprints. Review advisory job health at each sprint
-closeout, or don't add the job.
+the SonarCloud scan fails on every CI run and is carried as known technical debt. Review advisory
+job health at each sprint closeout, or don't add the job.
 
 ### AD-7 · Email delivery is Resend over HTTPS; SMTP is never used
 

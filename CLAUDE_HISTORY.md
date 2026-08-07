@@ -70,9 +70,12 @@ them:
    limiter was green in CI for weeks while never engaging in production, because CI's test client
    presents a stable peer address and the real proxy chain does not. Any control on the form
    endpoint must be exercised against the live URL.
-2. **Docs that do not travel with the PR go stale immediately.** FPRM needed a catch-up
-   reconciliation session after four PRs shipped without doc updates. The rule exists because it
-   was learned the expensive way.
+2. **An unticketed session still needs a docs-sync follow-up.** FPRM's "Post-Sprint 20 UX &
+   Workflow Fixes" (PRs #128–#163, closed 2026-05-22) ran with no Jira ticket, driven by direct
+   browser testing of the Sprint 20 deliverables; the owner opted to run polish interactively and
+   reconcile docs in a follow-up sweep. Its own recorded lesson: skipping Jira during a polish run
+   is fine when the owner is driving the punch list, but the four canonical docs still need a
+   single reconciliation PR at the end.
 3. **Build PR bodies from a file.** Inline shell strings containing backticks trigger command
    substitution and publish a mangled PR body.
 4. **Drive multi-step git/PR flows through one self-guarding script** that checks each step's
@@ -153,6 +156,77 @@ AD-9 as already written. AD-9 in particular moved from stated intent to enforced
    against the build and rule-by-rule against the original stylesheet. That check is what caught
    the two would-be regressions (lessons 3 and 4) and what confirmed this deploy-path change was
    invisible to visitors.
+
+---
+
+## Docs Correction — Canonical Doc Defects from Bootstrap  ·  2026-08-06
+
+**PRs merged:** #4
+**Fix version / native sprint:** `11066` / `1039` (folded into the Sprint 1 release)
+**Jira keys:** SWEB-7 (Bug)
+**Blocking CI checks at close:** `build`, `format`, `links`
+**Live site state at close:** Unchanged. Docs-only PR — no file under `src/`, `public/`, or
+`.github/` was touched, and no behaviour changed.
+
+### Why this existed
+
+Three factual defects were found in the canonical docs. **All three originated in bootstrap
+authoring, not in Sprint 1 execution** — they were written into the docs before Sprint 1 began and
+were carried forward untouched. Each was a claim about the sibling Fracttal PRM project, asserted
+without reading FPRM's files.
+
+### What was wrong
+
+1. **AD-4 was inverted.** Ours said sprints are tracked via fix versions **AND** native Agile
+   sprints, presenting both as co-equal mechanisms. FPRM `PROJECT_CONTEXT.md` §6 actually reads
+   *"tracked via fix versions, **not** native Agile sprints"* — fix versions are the mechanism, and
+   the dual JQL query is a *consequence* of that choice, not a second mechanism. Restated in
+   `PROJECT_CONTEXT.md` §6 and `CLAUDE.md`, with a note that SWEB populates both fields so tickets
+   also land on board 100.
+2. **An invented duration.** "SonarCloud failed on every run for twenty-plus sprints." FPRM states
+   only that the scan fails on every CI run and is non-blocking. No duration appears anywhere in
+   FPRM's docs; "twenty-plus sprints" was fabricated. Removed from `PROJECT_CONTEXT.md` §6 and
+   `RUNBOOK.md` §8. The substantive lesson — advisory jobs can fail unnoticed, so review them at
+   closeout — is correct and was kept.
+3. **A fabricated event.** "FPRM needed a catch-up reconciliation session after four PRs shipped
+   without doc updates." No such event exists. The only "four PRs" references in FPRM's history are
+   about the auto-merger merging four PRs quickly. Replaced with the real, verified event: FPRM's
+   *Post-Sprint 20 UX & Workflow Fixes* (PRs #128–#163, closed 2026-05-22) — an unticketed session
+   driven by direct browser testing, which needed a single docs reconciliation PR at the end.
+
+Also in this PR: `PROMPT_TEMPLATE.md` §5 gained subsection 5a requiring that any prompt creating
+Jira tickets reference an owner-approved `SWEB_Sprint<n>_Jira_Tickets.md` and that Claude Code
+transcribe it rather than author ticket content. Sprint 1 is recorded there as a known deviation,
+not a precedent.
+
+### ADs recorded
+None. AD-4 was corrected, not replaced — its number and meaning are unchanged from FPRM's original.
+
+### Lessons
+1. **Claims about project history must be verified against the source files before being written
+   into a canonical doc.** These docs are read at the start of every session and presented as
+   ground truth, so a fabricated claim does not stay contained — it is quoted forward as fact. All
+   three defects were plausible, specific, and completely invented.
+2. **Fabrications cluster in quantities.** Two of the three defects were numbers — "twenty-plus
+   sprints", "four PRs". Numbers are the most quotable part of a claim and the most likely to be
+   confabulated when reconstructing from memory. If the source states no number, state no number.
+3. **The correction prompt was right to say "do not trust the corrections on their authority".**
+   Verifying rather than transcribing caught two things the prompt itself got wrong — see the note
+   below.
+4. **One claim survived scrutiny, and that matters too.** "A rate limiter was green in CI and inert
+   in production for weeks" was checked against FPRM: AD-44 shipped 2026-06-02, the fix (AD-46 /
+   FPRM-460) merged 2026-06-19 — roughly 17 days inert. Supported, so it was left alone. Verifying
+   a claim and finding it sound is a real outcome; the goal is accuracy, not deletion.
+
+### Correction-prompt inaccuracies found during verification
+- The prompt implied FPRM's `PROMPT_TEMPLATE.md` carries the tickets-document requirement. It does
+  not — FPRM's §5 lists only files/changes/preservation/boundary constraints. The *practice* is
+  real and evidenced elsewhere (`FPRM_Phase<n>_Jira_Tickets.md` in FPRM `RUNBOOK.md` §9), but the
+  requirement is a genuine addition to both projects' templates, not a gap unique to SWEB.
+- The prompt cited `FPRM_Sprint25_Jira_Tickets.md`. FPRM's tickets documents are **phase**-based
+  (`FPRM_Phase1..4_Jira_Tickets.md`); only the *prompts* are sprint-based. That exact filename
+  appears nowhere in FPRM's canonical docs and could not be verified — FPRM's `Documentation/` is
+  untracked and not in the repo.
 
 ---
 
