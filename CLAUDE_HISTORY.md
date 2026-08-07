@@ -83,13 +83,17 @@ them:
 
 ## Sprint 1 — Bootstrap: Astro Scaffold, CI Pipeline, Actions Deploy  ·  2026-08-06
 
-**PRs merged:** #1
+**PRs merged:** #1, #2 (SWEB-6 correction)
 **Fix version / native sprint:** `11066` / `1039`
-**Jira keys:** SWEB-1 … SWEB-5
+**Jira keys:** SWEB-1 … SWEB-6
 **Blocking CI checks at close:** `build`, `format`, `links`
-**Live site state at close:** Unchanged. A visitor sees exactly the placeholder they saw before —
-same logo, tagline, divider, "coming soon" wording, colours, and animations. Pages is still
-serving the `main` branch root; the Actions deploy path is built but not yet switched on.
+**Live site state at close:** Visually unchanged — a visitor sees exactly the placeholder they saw
+before: same logo, tagline, divider, "coming soon" wording, colours, and animations. **The delivery
+path did change, unexpectedly.** The `deploy` job succeeded on the first merge and
+`synproconsulting.co` is now served from the Astro build artifact rather than the `main` branch
+root. The Pages API still reports `build_type: legacy` / `source: main/`, so the stored setting and
+the serving reality disagree; the owner action to set Source = "GitHub Actions" is still open, and
+the root `index.html` / `logo.png` / `CNAME` must stay until it is done.
 
 ### What landed
 - **SWEB-1** — Astro `7.2.0` scaffold authored directly (no interactive `npm create astro`):
@@ -133,6 +137,19 @@ AD-9 as already written. AD-9 in particular moved from stated intent to enforced
 5. **PowerShell's `Out-File -Encoding utf8` writes a BOM**, which broke linkinator's JSON config
    parse and produced a misleading "config has no effect" symptom. Use
    `[IO.File]::WriteAllText()` for any config file a non-Windows tool will read.
+6. **A predicted failure was written into the docs as fact, and was wrong (SWEB-6).** Sprint 1
+   asserted in `ci.yml`, `CLAUDE.md`, and `PROJECT_CONTEXT.md` that the `deploy` job would fail
+   until a manual Pages source switch. It succeeded on the first run and took over serving
+   production. **Do not document a prediction in the present tense.** State what was observed, and
+   if something must be predicted, mark it as a prediction and verify it at closeout.
+7. **`build_type` does not tell you which deploy path is serving.** The Pages API reported
+   `legacy` / `source: main/` while the Actions artifact was demonstrably live. The reliable check
+   is to fetch the live HTML and compare it against `dist/` — the two candidate sources produce
+   different byte counts, so the comparison is unambiguous.
+8. **"Zero visible change" needs to be proven, not assumed.** The live page was verified byte-wise
+   against the build and rule-by-rule against the original stylesheet. That check is what caught
+   the two would-be regressions (lessons 3 and 4) and what confirmed this deploy-path change was
+   invisible to visitors.
 
 ---
 
