@@ -48,32 +48,142 @@ string is rendered.
 
 ## 3. Component & Page Structure
 
-*Populated as pages and components are built.*
+### Page inventory
 
-Record here: the page inventory with route and purpose, the shared layout and what it owns
-(head/meta, nav, footer), and each reusable component with the props it takes.
+| Route | File | Purpose |
+|---|---|---|
+| `/` | `src/pages/index.astro` | The placeholder page — logo, tagline, divider, "coming soon", footer |
+
+There is exactly one route. `src/components/` exists but is empty (`.gitkeep`).
+
+### `src/layouts/BaseLayout.astro`
+
+The shared page shell. Owns `<html lang>`, the entire `<head>`, and `<body>`, exposing a single
+default `<slot />` for page content.
+
+| Prop | Type | Purpose |
+|---|---|---|
+| `title` | `string` | `<title>` text |
+| `description` | `string` | `<meta name="description">` content |
+
+It owns the head (charset, viewport, title, description, Google Fonts preconnects and the Sora
+stylesheet link) and the **global stylesheet**.
+
+**The `<style>` block is `is:global`, and this is load-bearing.** The rules target `html`, `body`,
+`*`, and `@keyframes`. Astro's default scoping rewrites selectors with a hash attribute, which
+would leave the universal reset and the body background applying to nothing. Do not remove
+`is:global` from this block without moving those rules elsewhere first.
+
+### `src/pages/index.astro`
+
+Renders through `BaseLayout` and reproduces the pre-Sprint-1 placeholder exactly: the two `.aura`
+gradient blobs, `main.stage` with the logo, tagline, divider, and status line, and the footer with
+the JS-populated copyright year.
+
+Two details are deliberate and easy to "fix" wrongly:
+
+- **`<img src="logo.png">` is relative, not root-absolute.** A relative reference resolves
+  correctly both on `synproconsulting.co/` and on `synproconsulting.github.io/synpro-website/`.
+  Rewriting it to `/logo.png` would 404 on the origin URL — which is precisely the URL the Hard
+  Rules require you to verify a risky change against.
+- **The year script carries `is:inline`.** Without it Astro bundles the script and hoists it into
+  `<head>` as a module. `is:inline` keeps it in place and unprocessed, matching the original.
 
 ---
 
 ## 4. CI/CD Logic
 
+### Trigger
+
+`push` to `feature/**`, `fix/**`, `docs/**`, and `main`, plus `workflow_dispatch`. There is no
+`pull_request` trigger — the auto-merger resolves the PR from the branch name, exactly as on
+Fracttal PRM. `workflow_dispatch` was added so the owner can re-run the deploy by hand after
+switching the Pages source without pushing an empty commit.
+
+Top-level `permissions: contents: read`. Only the `deploy` job widens this, for itself.
+`NODE_VERSION` is set once as a workflow-level `env` so the three Node jobs cannot drift apart.
+
 ### Job summary
 
-*Populated when `ci.yml` is written in Sprint 1.*
+| Job | Trigger condition | Blocking | What it does |
+|---|---|---|---|
+| `build` | every run | **Yes** | `npm ci` → `npm run build` → asserts `dist/CNAME` → uploads `dist/` artifact |
+| `format` | every run | **Yes** | `npm ci` → `npm run format:check` |
+| `links` | every run, `needs: build` | **Yes** | downloads the `dist` artifact → `npm run links` |
+| `deploy` | `github.ref == 'refs/heads/main'`, `needs: build` | No (`continue-on-error`) | `configure-pages` → `upload-pages-artifact` → `deploy-pages` |
+| `auto-merge` | `github.ref != 'refs/heads/main'`, `needs: [build, format, links]` | n/a | squash-merges the open PR for the branch |
 
-Must record: every job, its trigger condition, whether it blocks, and what it does — matching the
-table in `CLAUDE.md`. The blocking list here and the auto-merger's configured check names must be
-kept identical; a drift between them means either the merger blocks forever or merges on nothing.
+**The blocking list is the `needs:` array on `auto-merge`.** It is not a separately configured
+check-name list, so it cannot silently drift; but renaming a job id without updating that array
+breaks the gate in one of the two classic ways (merges on nothing / blocks forever).
+
+`links` intentionally consumes the artifact rather than rebuilding. It therefore checks the exact
+bytes that `deploy` would publish, and cannot pass against a different build than the one shipped.
+
+### The `dist/CNAME` assertion (AD-9)
+
+The `build` job fails if `dist/CNAME` is absent, or if its whitespace-stripped contents are not
+exactly `synproconsulting.co`. This is the enforcement point for AD-9 — the invariant that would
+otherwise fail silently and take the live domain down. It runs after `npm run build` and before
+the artifact upload, so a bad artifact is never produced.
+
+`public/CNAME` is 19 bytes with **no trailing newline**, byte-identical to the root `CNAME`. The
+assertion strips whitespace, so a trailing newline would not fail it — but keep them identical
+anyway so the two copies can be compared by hash during the Sprint 2 cleanup.
+
+### Link checking
+
+`linkinator@8.0.3`, pinned exactly, configured by `.linkinatorrc.json` rather than CLI flags.
+
+The config file is not a style choice. linkinator serves the target directory over
+**`127.0.0.1`**, so internal links become absolute `http://` URLs during the crawl. A skip pattern
+of `^https?://` therefore skips the crawl root and the checker passes having scanned **zero
+links** — green and completely inert. The working pattern excludes the loopback hosts explicitly:
+
+```
+^https?://(?!(localhost|127\.0\.0\.1|\[::1\]))
+```
+
+Passing that regex as a CLI flag was also mangled by Windows shell quoting, which is the second
+reason it lives in a config file. See `RUNBOOK.md` §8 for the positive and negative tests that
+prove the check is live.
+
+### Build reproducibility
+
+`astro.config.mjs` sets `vite.build.cssMinify: false`. The default minifier strips
+`-webkit-background-clip: text` while keeping `-webkit-text-fill-color: transparent`, making the
+gradient "coming soon" text invisible on engines without unprefixed `background-clip`. The
+stylesheet is ~2.5 kB; the saving is not worth a visible regression. Re-enabling minification
+requires a browserslist-driven Lightning CSS target **and** a visual re-check of `.status .soon`.
 
 ### Deploy
 
-GitHub Pages, published from the build artifact on `main`. Note the `CNAME` passthrough
-requirement (AD-9) wherever the build output directory is configured.
+GitHub Pages, published from the `dist` artifact on `main` only.
+
+**Currently expected to fail.** Pages is still on `build_type: legacy`, serving the `main` branch
+root. `actions/deploy-pages` cannot publish until the owner switches Settings → Pages → Source to
+"GitHub Actions". The job is `continue-on-error: true` so it can never block the auto-merger
+(AD-6), and carries an inline comment saying so, so a future reader does not chase it as a defect.
+
+Per AD-6's own consequence note, that also means it can sit red indefinitely. Check it at closeout.
 
 ### Auto-merger
 
-Ported from `synproconsulting/Fracttal-PRM` `.github/workflows/ci.yml`. Record any adaptation
-made during the port so the two can be reconciled later if the shared pattern evolves.
+Ported from `synproconsulting/Fracttal-PRM` `.github/workflows/ci.yml`. Adaptations made:
+
+| Change | Reason |
+|---|---|
+| `needs: test` → `needs: [build, format, links]` | This repo's blocking jobs |
+| Added a guard that fails loudly if `secrets.PAT_TOKEN` is empty | The secret was absent on this repo at Sprint 1; an unset token otherwise surfaces as an opaque 401 |
+| Job ids given matching `name:` values | So the GitHub check name and the `needs:` id are the same string, removing any ambiguity about what "the check name" is |
+
+Preserved unchanged: the `{sha: $GITHUB_SHA}` merge guard from FPRM-36, which makes GitHub refuse
+the merge with 409 if the PR head advanced past the commit this run actually tested, and the
+`exit 0` on 409 (the newer commit triggers its own run).
+
+`PAT_TOKEN` must be a classic PAT with `repo` + `workflow` scope. The built-in `GITHUB_TOKEN`
+cannot substitute for it: pushes made with `GITHUB_TOKEN` do not trigger further workflow runs, so
+the merge to `main` would never fire the `deploy` job.
 
 ---
 

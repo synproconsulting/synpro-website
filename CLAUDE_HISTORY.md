@@ -81,4 +81,59 @@ them:
 
 ---
 
-*Next entry: Sprint 1.*
+## Sprint 1 — Bootstrap: Astro Scaffold, CI Pipeline, Actions Deploy  ·  2026-08-06
+
+**PRs merged:** #1
+**Fix version / native sprint:** `11066` / `1039`
+**Jira keys:** SWEB-1 … SWEB-5
+**Blocking CI checks at close:** `build`, `format`, `links`
+**Live site state at close:** Unchanged. A visitor sees exactly the placeholder they saw before —
+same logo, tagline, divider, "coming soon" wording, colours, and animations. Pages is still
+serving the `main` branch root; the Actions deploy path is built but not yet switched on.
+
+### What landed
+- **SWEB-1** — Astro `7.2.0` scaffold authored directly (no interactive `npm create astro`):
+  `package.json`, `astro.config.mjs`, `.gitignore`, `src/{pages,layouts,components}/`, `public/`,
+  Prettier + `prettier-plugin-astro`, and a committed `package-lock.json`.
+- **SWEB-2** — Placeholder rebuilt as `BaseLayout.astro` + `index.astro`. `logo.png` and `CNAME`
+  copied into `public/`. Root copies deliberately retained.
+- **SWEB-3** — `.github/workflows/ci.yml` with three blocking jobs and the Fracttal PRM
+  auto-merger ported across, gating on `[build, format, links]`.
+- **SWEB-4** — Pages deploy job wired (artifact upload, `github-pages` environment, `pages: write`
+  / `id-token: write`, `main`-only, `continue-on-error`). The source switch itself is an
+  outstanding manual owner action.
+- **SWEB-5** — `README.md` added.
+
+### ADs recorded
+None. No new architectural decision was made — Sprint 1 implemented AD-1, AD-2, AD-3, AD-6, and
+AD-9 as already written. AD-9 in particular moved from stated intent to enforced invariant via the
+`build` job's `dist/CNAME` assertion.
+
+### Lessons
+1. **A global field context does not put a Jira field on a screen.** All three custom fields
+   (`Sprint`, `Story Points`, `Execution Order`) existed site-level with `isGlobalContext: true`,
+   and `GET /rest/api/3/field` happily returned them — yet ticket creation would have silently
+   dropped points and execution order, because none were on the SWEB screens. Verify with
+   `GET /rest/api/3/issue/createmeta/{key}/issuetypes/{id}`, which reflects the actual screen.
+2. **The inherited field ID was wrong for this project.** `CLAUDE.md` carried
+   `customfield_10016` from FPRM; board 100 actually estimates on `customfield_10036`. Company-
+   managed and team-managed projects use different story-point fields. Read the board's
+   `configuration` endpoint rather than inheriting an ID from a sibling project.
+3. **A link checker can pass while scanning nothing.** The first linkinator configuration reported
+   "Successfully scanned 0 links" and exited 0 — fully green, entirely inert. Cause: linkinator
+   serves a local directory over `127.0.0.1`, so a skip pattern written as
+   `^https?://(?!localhost)` matched the root itself and skipped the whole crawl. This is the
+   FPRM-460 failure mode in a new costume. **Negative-test every control**: break something on
+   purpose and confirm the check goes red. Both tests are recorded in `RUNBOOK.md` §8.
+4. **A CSS minifier can silently delete a vendor prefix and make text invisible.** Lightning CSS
+   dropped `-webkit-background-clip: text` while keeping `-webkit-text-fill-color: transparent`,
+   which would have rendered the gradient "coming soon" text invisible on older engines. On a
+   sprint whose whole premise was "zero visible change", the build tool was the thing about to
+   change what a visitor sees. Diff the rendered output against the original, not just the source.
+5. **PowerShell's `Out-File -Encoding utf8` writes a BOM**, which broke linkinator's JSON config
+   parse and produced a misleading "config has no effect" symptom. Use
+   `[IO.File]::WriteAllText()` for any config file a non-Windows tool will read.
+
+---
+
+*Next entry: Sprint 2.*

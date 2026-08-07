@@ -1,0 +1,25 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="SynPro Consulting"
+  description="SynPro Consulting — Facilities & Workplace Advisory. Website coming soon."
+>
+  <div class="aura aura--blue"></div>
+  <div class="aura aura--green"></div>
+  <main class="stage">
+    <div class="logo-wrap"><img src="logo.png" alt="SynPro Consulting" /></div>
+    <p class="tagline">Facilities &amp; Workplace Advisory</p>
+    <div class="divider" role="presentation"></div>
+    <p class="status">Website <span class="soon">coming soon</span></p>
+  </main>
+  <footer>&copy; <span id="yr"></span> SynPro Consulting</footer>
+  <!--
+    `is:inline` keeps this script exactly where it is and unbundled, matching the
+    original placeholder. Astro would otherwise hoist it to <head> as a module.
+  -->
+  <script is:inline>
+    document.getElementById('yr').textContent = new Date().getFullYear();
+  </script>
+</BaseLayout>

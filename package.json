@@ -1,0 +1,23 @@
+{
+  "name": "synpro-website",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Public marketing website for SynPro Consulting",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "format": "prettier --write \"src/**/*.{astro,css,js,mjs,ts}\" \"*.{mjs,json}\"",
+    "format:check": "prettier --check \"src/**/*.{astro,css,js,mjs,ts}\" \"*.{mjs,json}\"",
+    "links": "linkinator ./dist --config .linkinatorrc.json"
+  },
+  "dependencies": {
+    "astro": "7.2.0"
+  },
+  "devDependencies": {
+    "linkinator": "8.0.3",
+    "prettier": "3.9.6",
+    "prettier-plugin-astro": "0.14.1"
+  }
+}

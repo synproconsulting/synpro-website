@@ -22,11 +22,18 @@ for planning and prompt authoring, Claude Code as the Dev Agent, a rule-based au
 **Owner:** Johan Wessels — SynPro Consulting
 **Started:** August 2026
 
-**Current state:** Pre-Sprint-1. A single-page placeholder (logo + "coming soon") is live at
-`synproconsulting.co`, served by GitHub Pages from the `main` branch root of
-`synproconsulting/synpro-website`. DNS is configured at Namecheap (four GitHub Pages apex A
-records + `www` CNAME) and TLS is issued. No build step, no CI, no canonical docs in the repo
-yet — Sprint 1 establishes all three.
+**Current state:** Sprint 1 complete. The build pipeline is established. The same single-page
+placeholder (logo + "coming soon") a visitor saw before Sprint 1 is still what they see — it is
+now produced by an Astro build rather than served as a raw file. `package.json`, `astro.config.mjs`,
+`src/`, `public/`, and `.github/workflows/ci.yml` all exist; three blocking CI checks (`build`,
+`format`, `links`) gate a ported rule-based auto-merger. DNS is configured at Namecheap (four
+GitHub Pages apex A records + `www` CNAME) and TLS is issued.
+
+**Pages source has not yet been switched.** GitHub Pages is still on `build_type: legacy`,
+deploying from the `main` branch root. The Actions `deploy` job is written, wired, and
+non-blocking — it will fail on every run until the owner flips Settings → Pages → Source to
+"GitHub Actions". Until that flip, the root `index.html`, `logo.png`, and `CNAME` are what serve
+the live site and must not be deleted.
 
 ---
 
@@ -225,7 +232,7 @@ published with every build. See the matching Hard Rule.
 
 | Layer | Technology |
 |---|---|
-| Site framework | Astro *(to be scaffolded in Sprint 1)* |
+| Site framework | Astro `7.2.0` (pinned exactly; requires Node ≥ 22.12) |
 | Hosting | GitHub Pages — custom domain `synproconsulting.co` |
 | DNS / registrar | Namecheap |
 | Contact form endpoint | Cloudflare Worker *(to be created)* |
@@ -240,31 +247,44 @@ published with every build. See the matching Hard Rule.
 
 ---
 
-## Project Structure (target — Sprint 1 outcome)
+## Project Structure (actual — as of Sprint 1)
 
 ```
 synpro-website/
 ├── src/
-│   ├── pages/            # Astro routes — one file per page
-│   ├── layouts/          # Shared page shell (nav, footer, head)
-│   ├── components/       # Reusable sections
-│   └── content/          # Markdown content collections
-├── public/
-│   ├── CNAME             # CRITICAL — custom domain; must survive every build
-│   └── assets/           # Logo, images, favicon
-├── worker/               # Cloudflare Worker — contact form endpoint
-│   ├── src/
-│   └── test/
+│   ├── pages/
+│   │   └── index.astro       # The placeholder page — the site's only route
+│   ├── layouts/
+│   │   └── BaseLayout.astro  # Page shell: head, global stylesheet, <slot />
+│   └── components/           # Empty (.gitkeep) — populated as sections are built
+├── public/                   # Static passthrough — copied verbatim into dist/
+│   ├── CNAME                 # CRITICAL — custom domain; must survive every build
+│   └── logo.png
 ├── .github/
 │   └── workflows/
-│       └── ci.yml        # Build, checks, auto-merger, Pages deploy
+│       └── ci.yml            # build, format, links, deploy, auto-merge
+├── astro.config.mjs
+├── package.json
+├── package-lock.json
+├── .prettierrc.json
+├── .prettierignore
+├── .linkinatorrc.json        # Link-checker config — skips external URLs
+├── .gitignore
 ├── CLAUDE.md
 ├── CLAUDE_HISTORY.md
 ├── PROJECT_CONTEXT.md
 ├── RUNBOOK.md
 ├── PROMPT_TEMPLATE.md
-└── README.md
+├── HANDOFF_TEMPLATE.md
+├── README.md
+│
+├── index.html                # LEGACY ROOT COPIES — still what Pages serves.
+├── logo.png                  # Do not delete until the Pages source flip is
+└── CNAME                     # verified. Removal is a Sprint 2 task.
 ```
+
+> Not yet created: `src/content/` (content collections) and `worker/` (the Cloudflare Worker
+> contact-form endpoint). Both arrive in the sprint that takes them.
 
 > `Documentation/` sits at the repo root, is untracked, and is canonical. Never `git clean` it.
 
@@ -276,11 +296,26 @@ synpro-website/
 |---|---|
 | Site | `synproconsulting.atlassian.net` |
 | Project key | `SWEB` |
-| Jira board ID | `100` |
-| Execution order field | `customfield_10071` *(verify present on SWEB screens)* |
-| Story points field | `customfield_10016` *(verify present on SWEB screens)* |
-| Sprint fix version IDs | *(populated as sprints are created)* |
-| Native sprint IDs | *(populated as sprints are created)* |
+| Project ID | `10099` (company-managed / classic) |
+| Jira board ID | `100` (Scrum) |
+| Story issue type ID | `10007` |
+| Sprint field | `customfield_10020` |
+| Story points field | **`customfield_10036`** ("Story Points") |
+| Execution order field | `customfield_10071` |
+| Sprint fix version IDs | Sprint 1 → `11066` |
+| Native sprint IDs | Sprint 1 → `1039` |
+
+> **Story points is `customfield_10036`, not `customfield_10016`.** SWEB is a company-managed
+> project and board 100's configured estimation field is `customfield_10036` ("Story Points").
+> `customfield_10016` ("Story point estimate") is the team-managed equivalent used by FPRM and is
+> **not** the field this board estimates on. Setting it would leave the board reading zero points.
+>
+> All three fields existed site-level with global contexts but were **absent from the SWEB
+> screens** at Sprint 1 setup — field context and screen membership are different things, and a
+> global context does not put a field on a screen. `customfield_10036` and `customfield_10071`
+> were added to screen `10079` (Story/Task, tab `10082`) and screen `10080` (Bug, tab `10083`).
+> Verify with `GET /rest/api/3/issue/createmeta/SWEB/issuetypes/10007`, not with
+> `GET /rest/api/3/field` — the latter only proves the field exists somewhere on the site.
 
 **Sprint query pattern:**
 ```python
@@ -299,14 +334,20 @@ Blocking and non-blocking jobs are defined in `.github/workflows/ci.yml`. The au
 blocking check list must exactly match the jobs marked blocking below — **if the list is empty or
 stale, the auto-merger merges on nothing.**
 
-| Stage | What it does | Blocking? |
+| Job ID | What it does | Blocking? |
 |---|---|---|
-| Build | Astro production build succeeds | Yes |
-| Lint | Formatting and markup checks | Yes |
-| Link check | No broken internal links in the build output | Yes |
-| Worker tests | Unit tests for the contact-form endpoint | Yes |
-| Accessibility / performance audit | Advisory quality signal | No |
-| Deploy | Publish build artifact to GitHub Pages (`main` only) | No |
+| `build` | `npm ci`, `npm run build`, then asserts `dist/CNAME` exists and equals `synproconsulting.co`; uploads `dist/` as an artifact | **Yes** |
+| `format` | `prettier --check` across `src/` and the root config files | **Yes** |
+| `links` | Downloads the `build` artifact and runs linkinator over it; internal links only | **Yes** |
+| `deploy` | Publishes the artifact to GitHub Pages (`main` only, `continue-on-error: true`) | No |
+| `auto-merge` | `needs: [build, format, links]` — squash-merges the PR (non-`main` only) | n/a |
+
+> The blocking check list **is** the `needs:` array on the `auto-merge` job: `[build, format, links]`.
+> There is no separately configured check-name list to drift out of sync — renaming a job id is the
+> only way to break the gate, and doing so without updating `needs:` makes the merger either merge
+> on nothing or block forever.
+>
+> Jobs not yet present: worker tests (no Worker) and the accessibility/performance audit.
 
 > **Porting note:** the rule-based auto-merger job is carried over from
 > `synproconsulting/Fracttal-PRM` `.github/workflows/ci.yml`. Read that file before writing this
@@ -347,13 +388,22 @@ provider's secret store, edited manually.
 *None yet — this section is populated as the project runs. Active items only; historical
 follow-ups live in `CLAUDE_HISTORY.md`.*
 
-- **Cloudflare Worker not yet created.** The contact form has no endpoint. Until Sprint 1 (or
-  whichever sprint takes it), the site has no working contact path.
-- **Repo already contains canonical docs committed directly to `main`** (uploaded 2026-08-03, before this doc set existed). Their content must be reconciled against this version before Sprint 1.
-- **No `README.md` in the repo.** GitHub shows the "Add a README" prompt; add one in Sprint 1.
+- **Cloudflare Worker not yet created.** The contact form has no endpoint. Until the sprint that
+  takes it, the site has no working contact path.
 - **Repo is public.** GitHub Pages on a free plan requires it. Nothing in these docs is sensitive, but every future commit is world-readable — never commit a secret, an internal contact, or client-identifying material.
-- **Site currently deploys from branch root, not from a build.** Switching to an Actions-based
-  deploy is a Sprint 1 task and carries the `CNAME` risk described in the Hard Rules.
+- **Pages source still on branch-root deploy.** The `deploy` job is expected to fail on every run
+  until the owner switches Settings → Pages → Source to "GitHub Actions". It is
+  `continue-on-error: true`, so it cannot block a merge — but per AD-6 that also means it can stay
+  red unnoticed. Re-check it at the next closeout.
+- **Root `index.html`, `logo.png`, and `CNAME` are duplicated in `public/`.** Both copies exist
+  deliberately: Pages still serves the root, so deleting it would take the site down. Removing the
+  root duplicates is a **Sprint 2 task**, to be done only after the source flip is verified on the
+  `github.io` origin URL.
+- **CSS minification is disabled** (`vite.build.cssMinify: false` in `astro.config.mjs`). The
+  default minifier strips `-webkit-background-clip: text` while retaining
+  `-webkit-text-fill-color: transparent`, which renders the gradient "coming soon" text invisible
+  on engines without unprefixed `background-clip`. Revisit only with a browserslist-driven
+  Lightning CSS target, and re-verify that rule renders before re-enabling.
 
 ---
 
