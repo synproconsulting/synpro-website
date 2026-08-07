@@ -1,0 +1,18 @@
+# build output
+dist/
+.astro/
+
+# dependencies
+node_modules/
+
+# environment — secrets never enter this repository
+.env
+.env.*
+
+# local-only working material (canonical, but untracked by design)
+Documentation/
+Source Material/
+
+# misc
+.DS_Store
+*.log

@@ -150,8 +150,29 @@ C:\Johan\SynPro Consulting\Website\Website Development
 
 ### Running the site locally
 
-*Populated in Sprint 1 once Astro is scaffolded — install, dev server, and production build
-commands.*
+Requires **Node.js ≥ 22.12** (Astro 7.2.0's floor). Verified on Node 24.15.0 / npm 11.12.1.
+
+```cmd
+cd "C:\Johan\SynPro Consulting\Website\Website Development"
+npm install          :: first run only, or after a dependency change
+npm run dev          :: dev server with hot reload
+npm run build        :: production build into dist/
+npm run preview      :: serve the production build
+```
+
+The three commands CI gates on, runnable locally in the same form:
+
+```cmd
+npm run build        :: must also leave dist/CNAME in place
+npm run format:check :: fix with `npm run format`
+npm run links        :: broken internal links in dist/ — run AFTER a build
+```
+
+`npm run links` reads `dist/`, so a stale or absent `dist/` gives a meaningless result. Always
+build first.
+
+**Commit the lockfile with every dependency change.** `package.json` and `package-lock.json` are
+critical files — read before modifying, never remove an existing dependency, only append.
 
 ### Running the Worker locally
 
@@ -175,12 +196,58 @@ jql = f"project = SWEB AND (fixVersion = {fix_id} OR sprint = {native_id})"
 
 Always dual-query. A single-field query misses tickets at closeout.
 
-### Custom fields
+### Custom fields — SWEB actual IDs
 
-`customfield_10071` (execution order) and `customfield_10016` (story points) are site-level fields
-shared with the FPRM project, but **screen configuration is per-project**. Confirm both are on the
-SWEB create/edit screens before the first sprint setup — a missing field fails ticket creation
-with an unhelpful 400.
+| Field | ID | Notes |
+|---|---|---|
+| Sprint | `customfield_10020` | |
+| Story Points | `customfield_10036` | **Not** `customfield_10016` — see below |
+| Execution Order | `customfield_10071` | |
+
+Project ID `10099`, board `100` (Scrum), Story issue type `10007`.
+
+**Story points is `customfield_10036` on SWEB.** SWEB is company-managed, and board 100's
+configured estimation field is `customfield_10036` ("Story Points"). `customfield_10016` ("Story
+point estimate") is the team-managed field FPRM uses. Setting the wrong one is silent — the ticket
+is created, and the board reads zero points. Confirm with:
+
+```
+GET /rest/agile/1.0/board/100/configuration   → estimation.field.fieldId
+```
+
+### Verifying a field is actually usable *(learned Sprint 1)*
+
+**A global field context does not put a field on a screen.** At Sprint 1 setup all three fields
+existed site-level with `isGlobalContext: true`, and `GET /rest/api/3/field` returned them — but
+none were on the SWEB screens, so ticket creation would have silently dropped points and execution
+order.
+
+`GET /rest/api/3/field` proves only that a field exists *somewhere on the site*. The check that
+matters is the create screen:
+
+```
+GET /rest/api/3/issue/createmeta/SWEB/issuetypes/10007
+```
+
+If a field is missing, add it to the screen rather than working around it:
+
+```
+GET  /rest/api/3/issuetypescreenscheme/project?projectId=10099
+GET  /rest/api/3/issuetypescreenscheme/mapping?issueTypeScreenSchemeId={id}
+GET  /rest/api/3/screenscheme?id={id}
+GET  /rest/api/3/screens/{screenId}/tabs
+POST /rest/api/3/screens/{screenId}/tabs/{tabId}/fields   { "fieldId": "customfield_10036" }
+```
+
+SWEB screens: **`10079`** (Story/Task, tab `10082`) and **`10080`** (Bug, tab `10083`). Both
+already carry Story Points and Execution Order as of Sprint 1. The Bug screen matters because the
+Hard Rules require a Jira bug ticket before any in-sprint fix PR.
+
+### If Execution Order is ever unavailable
+
+Do not invent a substitute and do not fail. Proceed without it, use Jira's native backlog ranking
+(`customfield_10019`, Rank) for sequence, and record the absence in `CLAUDE.md` (Jira Configuration
+table + Known Issues) and in this section.
 
 ### Sub-tasks
 
@@ -207,8 +274,56 @@ Check for open PRs via the API before opening any new one. This is a hard rule, 
 
 ### Auto-merger check names
 
-The auto-merger's blocking check list must exactly match the job names in `ci.yml`. A drift means
-either it blocks forever or merges on nothing. Verify both after any change to either.
+The blocking check list for this repo is the `needs:` array on the `auto-merge` job in
+`.github/workflows/ci.yml`:
+
+```yaml
+needs: [build, format, links]
+```
+
+Those three strings are job ids, and each job's `name:` is set to the same string so the GitHub
+check name and the id cannot diverge. Renaming a job without updating `needs:` is the only way to
+break the gate — and it breaks it in one of the two classic ways (merges on nothing / blocks
+forever). Verify both after any change to either.
+
+### `PAT_TOKEN` is required for the auto-merger
+
+`auto-merge` authenticates with `secrets.PAT_TOKEN` — a classic PAT with `repo` + `workflow`
+scope, set under Settings → Secrets and variables → Actions.
+
+**The built-in `GITHUB_TOKEN` cannot substitute for it.** Pushes made with `GITHUB_TOKEN` do not
+trigger further workflow runs, so a merge to `main` would never fire the `deploy` job. The job
+fails fast with an explicit message if the secret is unset, rather than surfacing an opaque 401.
+
+### Verify a CI control is live, not just green *(learned Sprint 1)*
+
+A check that passes while inspecting nothing is worse than no check — it reports safety it is not
+providing. In Sprint 1 the link checker reported *"Successfully scanned 0 links"* and exited 0
+because its skip regex matched the crawl root. Fully green, entirely inert. This is the FPRM-460
+rate-limiter failure in a new costume.
+
+**Negative-test every control you add.** For the link checker specifically:
+
+```cmd
+:: POSITIVE — expect "scanned 2 links" and exit code 0
+npm run build
+npm run links
+
+:: NEGATIVE — inject a broken link into a copy of dist/ and expect exit code 1
+```
+
+The negative test injects `<a href="does-not-exist.html">` into a copy of `dist/index.html` and
+confirms linkinator reports `[404]` and exits 1. If the positive test ever reports a scanned-link
+count of 0, or the negative test exits 0, the check is inert — fix it before trusting a green run.
+
+Note the count: **2** internal links (the page and `logo.png`). External URLs are skipped by
+`.linkinatorrc.json` on purpose, so a Google Fonts outage cannot fail a blocking check.
+
+### Config files read by non-Windows tools *(learned Sprint 1)*
+
+PowerShell's `Out-File -Encoding utf8` writes a **BOM**. It broke linkinator's JSON config parse
+and presented as "the config file has no effect" — a misleading symptom that cost real debugging
+time. Use `[IO.File]::WriteAllText()` for any config a cross-platform tool will read.
 
 ### Build PR bodies from a file, never an inline shell string *(carried)*
 
@@ -268,10 +383,16 @@ Do this at the session boundary, as part of closeout — not "later".
 | CDN/browser cache masks a deploy | The old build is served from cache after a successful deploy | Verify in a fresh/private window |
 | Credentials must never be pasted in chat | Applies to the GitHub PAT, Resend key, and any provider token | Enter them directly in `.env` or the provider's secret store |
 | Unit tests cannot prove a runtime control works | Rate limiting and CORS depend on the real edge request path | Verify against the live endpoint (§4) |
+| A CI check can be green while inspecting nothing | The link checker scanned 0 links and passed | Negative-test every control (§8) |
+| A CSS minifier can drop a vendor prefix | `-webkit-background-clip` stripped while `-webkit-text-fill-color: transparent` was kept → invisible text | `cssMinify: false`; diff rendered output, not source |
+| `Out-File -Encoding utf8` writes a BOM | Breaks JSON config parsing in cross-platform tools | Use `[IO.File]::WriteAllText()` (§8) |
+| A global Jira field context ≠ the field being on a screen | `GET /field` lists it; ticket creation silently drops it | Verify via `createmeta` (§7) |
 | DNS guidance often says "remove existing records" | Following it takes down company mail | Additive changes only (§5) |
 
 ---
 
-*Last updated: 2026-08-06 — created at project bootstrap, pre-Sprint-1.*
+*Last updated: 2026-08-06 — Sprint 1 (SWEB-1 … SWEB-5, PR #1): local dev commands (§6), SWEB field
+IDs and screen-verification procedure (§7), auto-merger check names, `PAT_TOKEN` requirement, and
+the control-liveness negative test (§8).*
 *Update this file whenever a new operational lesson is learned — do not let lessons live only in
 chat transcripts.*

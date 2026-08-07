@@ -1,0 +1,198 @@
+name: CI
+
+# `main` is production. A merge here publishes to https://synproconsulting.co within
+# roughly a minute — there is no staging environment. Every blocking job below must
+# pass before the auto-merger will merge anything.
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+      - 'fix/**'
+      - 'docs/**'
+      - main
+  # Lets the owner re-run the pipeline (and therefore the Pages deploy) by hand after
+  # switching Settings → Pages → Source to "GitHub Actions". See SWEB-4.
+  workflow_dispatch:
+
+# Least privilege by default. The deploy job widens this for itself only.
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # BLOCKING: build, format, links
+  # The auto-merge job below gates on exactly these three job ids. Renaming a job
+  # here without updating that `needs:` list means the auto-merger either merges on
+  # nothing or blocks forever.
+  # ---------------------------------------------------------------------------
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      # AD-9 / Hard Rule: GitHub Pages resolves the custom domain from a CNAME file
+      # in the *published artifact*, not the repo root. If CNAME is ever missing from
+      # the build output, synproconsulting.co silently reverts to unconfigured and the
+      # site goes down. This assertion is the tripwire for that failure mode.
+      - name: Assert CNAME survived the build (AD-9)
+        run: |
+          if [ ! -f dist/CNAME ]; then
+            echo "::error::dist/CNAME is missing. Publishing this artifact would unconfigure synproconsulting.co."
+            exit 1
+          fi
+          actual="$(tr -d '[:space:]' < dist/CNAME)"
+          if [ "$actual" != "synproconsulting.co" ]; then
+            echo "::error::dist/CNAME contains '${actual}', expected 'synproconsulting.co'."
+            exit 1
+          fi
+          echo "dist/CNAME verified: ${actual}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+          if-no-files-found: error
+
+  format:
+    name: format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+
+  links:
+    name: links
+    runs-on: ubuntu-latest
+    # Checks the exact artifact that would be published, rather than a second build.
+    needs: build
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+      # linkinator serves ./dist over 127.0.0.1 and crawls it. .linkinatorrc.json skips
+      # absolute external URLs, so a Google Fonts outage can never fail a blocking check
+      # while a genuinely broken internal link still does.
+      - run: npm run links
+
+  # ---------------------------------------------------------------------------
+  # NON-BLOCKING: deploy
+  # ---------------------------------------------------------------------------
+
+  deploy:
+    name: deploy
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    # EXPECTED TO FAIL until the owner switches Settings → Pages → Source from
+    # "Deploy from a branch" to "GitHub Actions" (SWEB-4). Until that flip, Pages is
+    # still serving the main branch root and actions/deploy-pages has nothing to
+    # publish to. A red `deploy` here is not a defect — check the Pages source first.
+    # It is continue-on-error so it can never block the auto-merger (AD-6).
+    continue-on-error: true
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+      - id: deployment
+        uses: actions/deploy-pages@v5
+
+  # ---------------------------------------------------------------------------
+  # MANAGER AGENT: rule-based auto-merger
+  # Ported from synproconsulting/Fracttal-PRM .github/workflows/ci.yml.
+  # Adapted: gates on this repo's three blocking jobs instead of `test`.
+  # ---------------------------------------------------------------------------
+
+  auto-merge:
+    name: auto-merge
+    runs-on: ubuntu-latest
+    # THE BLOCKING CHECK LIST. Must match the job ids above exactly.
+    needs: [build, format, links]
+    if: github.ref != 'refs/heads/main'
+    steps:
+      - name: Find and merge PR
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          if [ -z "$PAT_TOKEN" ]; then
+            echo "::error::PAT_TOKEN secret is not set on this repository. The auto-merger cannot merge."
+            echo "Add it under Settings → Secrets and variables → Actions (classic PAT, repo + workflow scope)."
+            exit 1
+          fi
+
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          PR_NUMBER=$(curl -s \
+            -H "Authorization: token $PAT_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/pulls?state=open&head=${GITHUB_REPOSITORY_OWNER}:${BRANCH_NAME}" \
+            | python3 -c "import sys,json; prs=json.load(sys.stdin); print(prs[0]['number'] if prs else '')")
+
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No open PR found for branch $BRANCH_NAME"
+            exit 0
+          fi
+
+          echo "Found PR #$PR_NUMBER — merging at SHA $GITHUB_SHA"
+          # Pass {sha: $GITHUB_SHA} so the merge is refused (409) if the PR head
+          # has advanced beyond the SHA this CI run actually tested.
+          # Resolves FPRM-36 race: ensures we only merge code that passed CI here.
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X PUT \
+            -H "Authorization: token $PAT_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/merge" \
+            -d "{\"merge_method\": \"squash\", \"sha\": \"$GITHUB_SHA\"}")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "$BODY"
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Merged PR #$PR_NUMBER"
+          elif [ "$HTTP_CODE" = "409" ]; then
+            echo "Merge refused (409): PR head has advanced past $GITHUB_SHA. A newer commit will trigger its own CI run."
+            exit 0
+          else
+            echo "Merge failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
