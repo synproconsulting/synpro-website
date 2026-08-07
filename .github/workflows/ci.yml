@@ -115,9 +115,11 @@ jobs:
     #
     # Caveat worth knowing before you touch this: GET /repos/.../pages still reports
     # `build_type: legacy` with `source: main/`. Serving comes from the artifact, but
-    # the stored setting disagrees. Until the owner explicitly sets Settings → Pages →
-    # Source to "GitHub Actions", anything that triggers a legacy Jekyll build could
-    # republish the repo root and silently revert the deploy path.
+    # the stored setting disagrees. Because of that, GitHub also runs its own stock
+    # "pages build and deployment" (Jekyll) workflow on every push to main, and it
+    # fails — pre-existing since before Sprint 1, not caused by anything here, and
+    # harmless because it never produces an artifact. Setting Settings → Pages →
+    # Source to "GitHub Actions" retires it and removes the red run.
     #
     # It stays continue-on-error so it can never block the auto-merger (AD-6) — which
     # per AD-6's own consequence note means it can also fail unnoticed. Check it at

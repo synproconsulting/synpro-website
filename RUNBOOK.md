@@ -420,6 +420,7 @@ Do this at the session boundary, as part of closeout — not "later".
 | `Out-File -Encoding utf8` writes a BOM | Breaks JSON config parsing in cross-platform tools | Use `[IO.File]::WriteAllText()` (§8) |
 | A global Jira field context ≠ the field being on a screen | `GET /field` lists it; ticket creation silently drops it | Verify via `createmeta` (§7) |
 | Pages `build_type` lies about the active deploy path | Reported `legacy` while the Actions artifact was serving | Compare live HTML against `dist/` (§3) |
+| A red `pages build and deployment` run on every `main` push | GitHub's stock Jekyll builder, failing since before Sprint 1; not in our `ci.yml` | Expected. Harmless — it never produces an artifact. Switching the Pages source retires it |
 | DNS guidance often says "remove existing records" | Following it takes down company mail | Additive changes only (§5) |
 
 ---
