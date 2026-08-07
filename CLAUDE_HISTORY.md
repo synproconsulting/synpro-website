@@ -232,9 +232,9 @@ None. AD-4 was corrected, not replaced — its number and meaning are unchanged 
 
 ## Sprint 2 — Foundations and Housekeeping  ·  2026-08-07
 
-**PRs merged:** #5
+**PRs merged:** #5, #6 (SWEB-11 hotfix, folded in)
 **Fix version / native sprint:** `11099` / `1072`
-**Jira keys:** SWEB-8 … SWEB-10
+**Jira keys:** SWEB-8 … SWEB-11
 **Blocking CI checks at close:** `build`, `format`, `links`
 **Live site state at close:** Visually unchanged. A visitor sees the same placeholder — same logo,
 tagline, divider, "coming soon" wording, colours, and animations — and the delivery path did not
@@ -260,8 +260,8 @@ removal, verified on the `github.io` origin URL first and then on the apex.
   subsection in `CLAUDE.md`, in the past tense. `PROJECT_CONTEXT.md` §4's disagreement block was
   replaced by the durable lesson it produced. `RUNBOOK.md` gained the repo-root parking hazard
   (§6 and §10) and two entries in the §9 required-files list. The Sprint 1 PR-number error in this
-  file was corrected against the API, and `RUNBOOK.md` §8's expected link count was corrected from
-  2 to 3 after measurement.
+  file was corrected against the API. A further change to `RUNBOOK.md` §8's expected link count was
+  wrong and was reverted by SWEB-11 (PR #6) — see lesson 6.
 
 ### ADs recorded
 
@@ -303,15 +303,25 @@ removal, verified on the `github.io` origin URL first and then on the apex.
    pushes to `main` for `17f2433`, `4abf377`, and `19fb7b8` each triggered a red
    `pages build and deployment` run, and the next push (`d41545e`) triggered none. That is the
    observation the past-tense rewrite rests on — Sprint 1 lesson 6 applied to Sprint 1's own text.
-6. **A documented "expected" number is only as good as the last time someone measured it.**
-   `RUNBOOK.md` §8 recorded the link checker's expected count as **2** ("the page and `logo.png`"),
-   omitting the emitted stylesheet. Measured this sprint: **3**, both with and without the new
-   `robots.txt`. The number is load-bearing — that same section tells a future session to read an
-   unexpectedly low count as evidence the check has gone inert, so a stale expectation turns a
-   healthy check into a phantom regression, or hides a real one. Corrected to 3, with a note that
-   it changes whenever a page, image, or stylesheet is added. This is the same failure shape as
-   the SWEB-7 fabricated quantities, arrived at honestly: nobody invented the 2, it was simply
-   never re-measured.
+6. **Measure in the environment that governs, not the one you happen to be in. (Corrected by
+   SWEB-11 — see below.)** This sprint changed `RUNBOOK.md` §8's expected link count from **2** to
+   **3**, on the strength of a local `npm run links` run, and wrote a note calling the original 2
+   wrong. **The original 2 was right.** CI — whose `links` job is the blocking check, and which runs
+   against the published artifact — scans 2. The local 3 came from a Windows-only build artifact:
+   `core.autocrlf=true` adds 203 bytes to `BaseLayout.astro`, pushing the stylesheet from 4013 to
+   4216 bytes, across Astro's 4096-byte `inlineStylesheets: 'auto'` threshold, so it is emitted as a
+   separate crawlable file locally and inlined in CI.
+
+   The lesson is not "re-measure stale numbers" — that instinct was right, and the number genuinely
+   was worth checking. The lesson is that **a measurement is only evidence about the environment it
+   was taken in.** A blocking CI check's expected value has exactly one authority: the CI job log.
+   Confirming the local number against `31219473015`'s `links` log before editing would have cost
+   one API call and prevented the defect.
+
+   This is the SWEB-7 failure shape reached by a different route: SWEB-7's quantities were
+   fabricated from memory, this one was measured honestly and attributed to the wrong environment.
+   Both end as a specific, plausible, wrong number in a doc that is read as ground truth. Fixed in
+   PR #6.
 7. **A local `format:check` failure is not automatically a defect.** Running it on Windows flags
    six files — including four this sprint never touched — because `core.autocrlf=true` gives the
    working tree CRLF while the repo stores LF and Prettier defaults to `endOfLine: "lf"`. CI runs
@@ -319,6 +329,70 @@ removal, verified on the `github.io` origin URL first and then on the apex.
    working tree's bytes.** This sprint's blobs were pushed from LF content fetched via the Contents
    API, not read off disk, which is what kept the diff to real changes instead of a whole-file
    line-ending rewrite.
+
+---
+
+## Sprint 2 Hotfix — Link Count Reverted  ·  2026-08-07
+
+**PRs merged:** #6
+**Fix version / native sprint:** `11099` / `1072` (folded into the Sprint 2 release)
+**Jira keys:** SWEB-11 (Bug)
+**Blocking CI checks at close:** `build`, `format`, `links`
+**Live site state at close:** Unchanged. Docs-only PR — no file under `src/`, `public/`, or
+`.github/` was touched, and no behaviour changed.
+
+### Why this existed
+
+PR #5 changed `RUNBOOK.md` §8's expected link-checker count from 2 to 3 and asserted the original
+was wrong. It was not. The 3 was measured from a local Windows build; CI — the environment whose
+`links` job is the blocking check — scans 2, per the job log for run `31219473015`.
+
+### Root cause
+
+`core.autocrlf=true` gives the Windows working tree CRLF line endings. `BaseLayout.astro` carries
+203 CRLF pairs, so its `<style>` block is 203 bytes larger locally than the LF bytes in the repo.
+That moves the generated stylesheet from 4013 to 4216 bytes, across Astro's 4096-byte
+`inlineStylesheets: 'auto'` threshold:
+
+| | Stylesheet | `dist/index.html` | Links |
+|---|---|---|---|
+| Local (CRLF) | separate `_astro/index.*.css` | 1093 B | 3 |
+| CI / production (LF) | inlined | 5102 B | 2 |
+
+Proven by converting `BaseLayout.astro` to LF locally and rebuilding — output became 5102 bytes,
+stylesheet inlined, 2 links scanned. The file was restored immediately afterwards.
+
+### What was fixed
+
+- `RUNBOOK.md` §8 — count reverted to **2**, with the CI job log named as the authority and the
+  CRLF/threshold mechanism recorded so the divergence is explainable rather than surprising.
+- `RUNBOOK.md` §3 — warning added that the live-HTML-vs-`dist/` deploy check **false-negatives on a
+  Windows checkout**, with two reliable alternatives. This was not theoretical: it fired during the
+  Sprint 2 closeout and was briefly read as a failed deploy.
+- `RUNBOOK.md` §10 — two rows added.
+- `CLAUDE_HISTORY.md` — Sprint 2 lesson 6 rewritten.
+
+Nothing under `src/`, `public/`, or `.github/` was changed, and the repo's line endings were left
+alone. The repo correctly stores LF; only the local working copy differs, which is Git behaving as
+configured.
+
+### ADs recorded
+
+None. No architectural decision changed — a measurement was attributed to the wrong environment.
+
+### Lessons
+
+1. **A blocking CI check's expected values belong to CI.** Any number a runbook gives for build
+   output, artifact size, or scanned-link count should cite the job log it came from. One API call
+   against `31219473015` would have prevented this.
+2. **"Local build ≠ CI build" is a class of bug, not a one-off.** Line endings, Node version, and
+   lockfile drift can each change build *shape* rather than just formatting. This one changed
+   whether a stylesheet was a separate HTTP resource — visible in the link count, the page size,
+   and the deploy-verification procedure. Worth suspecting first whenever local and production
+   disagree in a way that looks like a failed deploy.
+3. **The verification step is what caught it.** The Section 8 closeout requires comparing the live
+   page against the build. That comparison failing is what surfaced both the false negative *and*
+   the wrong number committed minutes earlier in the same session.
 
 ---
 
