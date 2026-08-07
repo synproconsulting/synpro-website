@@ -93,7 +93,10 @@ path did change, unexpectedly.** The `deploy` job succeeded on the first merge a
 `synproconsulting.co` is now served from the Astro build artifact rather than the `main` branch
 root. The Pages API still reports `build_type: legacy` / `source: main/`, so the stored setting and
 the serving reality disagree; the owner action to set Source = "GitHub Actions" is still open, and
-the root `index.html` / `logo.png` / `CNAME` must stay until it is done.
+the root `index.html` / `logo.png` / `CNAME` must stay until it is done. GitHub's stock
+`pages build and deployment` workflow also fails on every push to `main` — **pre-existing, failing
+on the untouched pre-sprint commit `0a91a1c` before any sprint work landed**, and harmless because
+it never produces an artifact.
 
 ### What landed
 - **SWEB-1** — Astro `7.2.0` scaffold authored directly (no interactive `npm create astro`):

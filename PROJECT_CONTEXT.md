@@ -176,10 +176,22 @@ build_type: legacy      source: { branch: main, path: / }
 1. **`build_type` is not a reliable indicator of the active deploy path.** To determine which path
    is serving, fetch the live HTML and compare it to `dist/index.html`. The branch-root
    `index.html` and the built one differ substantially in size, so the comparison is unambiguous.
-2. **The deploy path is not yet stable.** Until the owner explicitly sets Settings → Pages → Source
-   to "GitHub Actions", anything that triggers a legacy Jekyll build could republish the repo root
-   over the artifact and silently revert the deploy. This is why the root `index.html`, `logo.png`,
-   and `CNAME` are still retained, and why removing them is gated on that switch.
+2. **GitHub still runs its stock `pages build and deployment` workflow on every push to `main`,
+   and it fails.** That workflow is the legacy Jekyll builder. It is not part of `ci.yml`, cannot
+   be edited from this repo, and is triggered purely by `build_type: legacy`.
+
+   It has been failing since **before Sprint 1** — commit `0a91a1c`, the untouched pre-sprint
+   `main`, failed at 2026-08-06T20:42Z. Last green legacy build: 2026-08-03. Sprint 1 did not cause
+   it.
+
+   Because the Jekyll build fails at the *build* step, it never uploads an artifact and its deploy
+   step is skipped. It therefore **cannot** overwrite the Actions deployment. The observed steady
+   state is one green `CI` run and one red `pages build and deployment` run per push to `main`,
+   with the site correctly served from the Actions artifact throughout.
+
+   Switching the source to "GitHub Actions" retires the legacy builder and removes the red run.
+   Until then the root `index.html`, `logo.png`, and `CNAME` are retained as a fallback, and
+   removing them stays gated on that switch.
 
 The job stays `continue-on-error: true` so it can never block the auto-merger (AD-6) — which per
 AD-6's own consequence note means it can also fail unnoticed. Check it at every closeout.

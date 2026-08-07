@@ -400,9 +400,15 @@ follow-ups live in `CLAUDE_HISTORY.md`.*
 - **Pages source setting contradicts what is actually serving.** The `deploy` job succeeds and the
   Actions artifact is live, but the Pages API still reports `build_type: legacy` / `source: main/`.
   **Owner action:** explicitly set Settings → Pages → Source to "GitHub Actions" so the stored
-  configuration matches reality. Until then the deploy path is not stable — a legacy Jekyll build
-  could republish the repo root over it. Do not trust `build_type` alone to tell you which path is
-  serving; compare the live HTML against `dist/` (see `RUNBOOK.md` §3).
+  configuration matches reality. Do not trust `build_type` alone to tell you which path is serving;
+  compare the live HTML against `dist/` (see `RUNBOOK.md` §3).
+- **GitHub's own `pages build and deployment` workflow fails on every push to `main`.** This is
+  **pre-existing and not caused by Sprint 1** — it failed on commit `0a91a1c` (the untouched
+  pre-Sprint-1 `main`) at 2026-08-06T20:42Z, before any sprint work landed. Last green legacy build
+  was 2026-08-03. It is the stock Jekyll builder, not a job in our `ci.yml`, and it cannot be
+  configured from this repo. Because it never produces an artifact, it **cannot** overwrite the
+  Actions deployment — the site stays up. Expect a red run alongside every green `CI` run until the
+  source is switched, which retires the legacy builder entirely. Do not chase it as a regression.
 - **`deploy` is `continue-on-error: true`** and therefore can fail unnoticed (AD-6's own
   consequence note). Check it at every sprint closeout.
 - **Root `index.html`, `logo.png`, and `CNAME` are duplicated in `public/`.** Both copies exist
