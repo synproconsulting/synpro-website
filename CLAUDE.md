@@ -22,14 +22,15 @@ for planning and prompt authoring, Claude Code as the Dev Agent, a rule-based au
 **Owner:** Johan Wessels — SynPro Consulting
 **Started:** August 2026
 
-**Last PR merged:** #4 (SWEB-7 — canonical doc corrections; docs only, no behaviour change).
+**Last PR merged:** #5 (SWEB-8, SWEB-9, SWEB-10 — Sprint 2 foundations; no visible change).
 
-**Current state:** Sprint 1 complete. The build pipeline is established. The same single-page
+**Current state:** Sprint 2 complete. The build pipeline is established. The same single-page
 placeholder (logo + "coming soon") a visitor saw before Sprint 1 is still what they see — it is
 now produced by an Astro build rather than served as a raw file. `package.json`, `astro.config.mjs`,
 `src/`, `public/`, and `.github/workflows/ci.yml` all exist; three blocking CI checks (`build`,
 `format`, `links`) gate a ported rule-based auto-merger. DNS is configured at Namecheap (four
-GitHub Pages apex A records + `www` CNAME) and TLS is issued.
+GitHub Pages apex A records + `www` CNAME) and TLS is issued. The site is crawler-locked by
+`public/robots.txt` until the cutover (AD-10).
 
 **The Actions deploy is live and serving production.** The `deploy` job succeeded on the first
 merge to `main`, and `https://synproconsulting.co` now serves the Astro build artifact, not the
@@ -37,11 +38,12 @@ merge to `main`, and `https://synproconsulting.co` now serves the Astro build ar
 still returns `synproconsulting.co`, and the rendered page is visually identical to the
 pre-Sprint-1 placeholder (all CSS differences are leading-zero notation).
 
-**But the Pages *setting* still disagrees with reality.** `GET /repos/.../pages` reports
-`build_type: legacy` with `source: main/` while the artifact is what serves. Until the owner
-explicitly sets Settings → Pages → Source to "GitHub Actions", the root `index.html`, `logo.png`,
-and `CNAME` must stay — anything that triggers a legacy Jekyll build could republish the repo root
-and silently revert the deploy path.
+**The Pages setting now agrees with what is serving.** The owner set Settings → Pages → Source to
+"GitHub Actions" after Sprint 1 closed. Observed 2026-08-07, immediately before the Sprint 2
+deletion: `GET /repos/.../pages` reports `build_type: workflow`, `cname: synproconsulting.co`,
+`status: built`, and `https_enforced: true`. Because the branch root is no longer published, the
+legacy root `index.html`, `logo.png`, and `CNAME` were removed in Sprint 2 (SWEB-9). `CNAME` now
+exists in exactly one place — `public/CNAME` — as AD-9 always intended.
 
 ---
 
@@ -227,6 +229,14 @@ delivery succeeded, was rate-limited, or was rejected as spam.
 Once the site builds via Actions, `CNAME` lives in the static passthrough directory and is
 published with every build. See the matching Hard Rule.
 
+### AD-10 · The site is crawler-locked until the cutover PR
+`public/robots.txt` disallows all user agents from all paths for the duration of the build
+programme. Because `main` is production, every page merged before the cutover is publicly fetchable
+at its route whether or not anything links to it — unlinked is not private. The lockout is lifted
+**only** in the cutover PR, in the same commit that publishes the nav and the real Home page.
+Lifting it earlier exposes half-built pages under the company's own name. This is scaffolding with
+a defined removal point, not a permanent setting. Full text in `PROJECT_CONTEXT.md` §6.
+
 ---
 
 ## Repository
@@ -258,7 +268,7 @@ published with every build. See the matching Hard Rule.
 
 ---
 
-## Project Structure (actual — as of Sprint 1)
+## Project Structure (actual — as of Sprint 2)
 
 ```
 synpro-website/
@@ -270,6 +280,7 @@ synpro-website/
 │   └── components/           # Empty (.gitkeep) — populated as sections are built
 ├── public/                   # Static passthrough — copied verbatim into dist/
 │   ├── CNAME                 # CRITICAL — custom domain; must survive every build
+│   ├── robots.txt            # Disallow-all crawler lockout until cutover (AD-10)
 │   └── logo.png
 ├── .github/
 │   └── workflows/
@@ -287,12 +298,13 @@ synpro-website/
 ├── RUNBOOK.md
 ├── PROMPT_TEMPLATE.md
 ├── HANDOFF_TEMPLATE.md
-├── README.md
-│
-├── index.html                # LEGACY ROOT COPIES — still what Pages serves.
-├── logo.png                  # Do not delete until the Pages source flip is
-└── CNAME                     # verified. Removal is a Sprint 2 task.
+└── README.md
 ```
+
+> The legacy root `index.html`, `logo.png`, and `CNAME` were deleted in Sprint 2 (SWEB-9) once the
+> Pages source flip was confirmed. Each of those filenames now exists in exactly one place, under
+> `public/`. If one reappears at the root, something has republished the branch root — investigate
+> before deleting it again.
 
 > Not yet created: `src/content/` (content collections) and `worker/` (the Cloudflare Worker
 > contact-form endpoint). Both arrive in the sprint that takes them.
@@ -313,8 +325,8 @@ synpro-website/
 | Sprint field | `customfield_10020` |
 | Story points field | **`customfield_10036`** ("Story Points") |
 | Execution order field | `customfield_10071` |
-| Sprint fix version IDs | Sprint 1 → `11066` |
-| Native sprint IDs | Sprint 1 → `1039` |
+| Sprint fix version IDs | Sprint 1 → `11066` · Sprint 2 → `11099` |
+| Native sprint IDs | Sprint 1 → `1039` · Sprint 2 → `1072` |
 
 > **Story points is `customfield_10036`, not `customfield_10016`.** SWEB is a company-managed
 > project and board 100's configured estimation field is `customfield_10036` ("Story Points").
@@ -396,35 +408,54 @@ provider's secret store, edited manually.
 
 ## Known Issues / Technical Debt
 
-*None yet — this section is populated as the project runs. Active items only; historical
-follow-ups live in `CLAUDE_HISTORY.md`.*
+*Active items only. Resolved items are moved out as they close; historical follow-ups live in
+`CLAUDE_HISTORY.md`.*
 
 - **Cloudflare Worker not yet created.** The contact form has no endpoint. Until the sprint that
   takes it, the site has no working contact path.
 - **Repo is public.** GitHub Pages on a free plan requires it. Nothing in these docs is sensitive, but every future commit is world-readable — never commit a secret, an internal contact, or client-identifying material.
-- **Pages source setting contradicts what is actually serving.** The `deploy` job succeeds and the
-  Actions artifact is live, but the Pages API still reports `build_type: legacy` / `source: main/`.
-  **Owner action:** explicitly set Settings → Pages → Source to "GitHub Actions" so the stored
-  configuration matches reality. Do not trust `build_type` alone to tell you which path is serving;
-  compare the live HTML against `dist/` (see `RUNBOOK.md` §3).
-- **GitHub's own `pages build and deployment` workflow fails on every push to `main`.** This is
-  **pre-existing and not caused by Sprint 1** — it failed on commit `0a91a1c` (the untouched
-  pre-Sprint-1 `main`) at 2026-08-06T20:42Z, before any sprint work landed. Last green legacy build
-  was 2026-08-03. It is the stock Jekyll builder, not a job in our `ci.yml`, and it cannot be
-  configured from this repo. Because it never produces an artifact, it **cannot** overwrite the
-  Actions deployment — the site stays up. Expect a red run alongside every green `CI` run until the
-  source is switched, which retires the legacy builder entirely. Do not chase it as a regression.
 - **`deploy` is `continue-on-error: true`** and therefore can fail unnoticed (AD-6's own
   consequence note). Check it at every sprint closeout.
-- **Root `index.html`, `logo.png`, and `CNAME` are duplicated in `public/`.** Both copies exist
-  deliberately: Pages still serves the root, so deleting it would take the site down. Removing the
-  root duplicates is a **Sprint 2 task**, to be done only after the source flip is verified on the
-  `github.io` origin URL.
+- **The site is crawler-locked and must be unlocked deliberately.** `public/robots.txt` disallows
+  every user agent (AD-10). It is scaffolding: the cutover PR must lift it in the same commit that
+  publishes the nav and the real Home page. Shipping the cutover without lifting it leaves the
+  finished site unindexable.
 - **CSS minification is disabled** (`vite.build.cssMinify: false` in `astro.config.mjs`). The
   default minifier strips `-webkit-background-clip: text` while retaining
   `-webkit-text-fill-color: transparent`, which renders the gradient "coming soon" text invisible
   on engines without unprefixed `background-clip`. Revisit only with a browserslist-driven
   Lightning CSS target, and re-verify that rule renders before re-enabling.
+
+### Resolved
+
+Kept because each cost real time to diagnose, and a future session finding a trace of one needs to
+know it was closed rather than re-open the investigation.
+
+- **Pages source setting contradicted what was actually serving.** *(Resolved — owner action, after
+  Sprint 1 closed.)* Through Sprint 1 the `deploy` job succeeded and the Actions artifact served
+  production while the Pages API still reported `build_type: legacy` / `source: main/`. The owner
+  set Settings → Pages → Source to "GitHub Actions"; the API reported `build_type: workflow` when
+  checked on 2026-08-07. The durable lesson outlives the condition: **`build_type` does not tell
+  you which path is serving.** Compare the live HTML against `dist/` — `RUNBOOK.md` §3 keeps that
+  procedure.
+- **GitHub's own `pages build and deployment` workflow failed on every push to `main`.**
+  *(Retired by the source flip.)* It was **pre-existing and never caused by any sprint work** — it
+  failed on commit `0a91a1c`, the untouched pre-Sprint-1 `main`, at 2026-08-06T20:42Z, before a
+  single line of Sprint 1 landed. Last green legacy build: 2026-08-03. It was the stock Jekyll
+  builder, not a job in our `ci.yml`, and could not be configured from this repo. It never produced
+  an artifact, so it could not overwrite the Actions deployment and the site stayed up throughout.
+  Observed retired: the pushes to `main` for `17f2433`, `4abf377`, and `19fb7b8` each triggered one,
+  and the next push (`d41545e`, PR #4) triggered none — a green `CI` run with a successful `deploy`
+  job and no legacy run alongside it.
+- **Root `index.html`, `logo.png`, and `CNAME` were duplicated in `public/`.** *(Resolved by
+  SWEB-9, Sprint 2.)* The duplicates existed deliberately while Pages served the branch root.
+  Once the source flip was confirmed, the root copies were inert and were deleted. Both pairs were
+  verified byte-identical before removal — the root and `public/` copies shared blob SHAs
+  (`b35b949d` for `CNAME`, `4e38674d` for `logo.png`).
+- **`files.zip` in the working directory.** *(Resolved 2026-08-07.)* An untracked archive predating
+  the project. Inspected during the first Sprint 2 pre-flight: it held six stale copies of canonical
+  docs already tracked in the repo. Redundant, and deleted — no `git clean` exclusion is needed for
+  it.
 
 ---
 

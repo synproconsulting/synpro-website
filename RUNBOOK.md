@@ -216,6 +216,28 @@ form flows stay testable offline.*
 Untracked, canonical, excluded from every `git clean`. Holds each sprint's Claude Code prompt, PR
 body files, and reference material. Accumulation here is intentional, not clutter.
 
+### The repo root is not a safe parking spot for source material *(learned Sprint 2)*
+
+The pre-flight `git clean -fd --exclude=Documentation/` **destroys every untracked file at the
+repo root** at the start of every session. That is the command working as designed — it is what
+guarantees a clean read surface — but it means anything dropped at the root to "look at later" is
+gone at the next session boundary, without warning and without a recycle-bin copy.
+
+Observed 2026-08-07: the first Sprint 2 pre-flight deleted `BIO_SOURCE.md`, three logo PNGs, and a
+`.pptx` that had been left at the root. **Nothing was lost — originals existed in
+`Website\Input Material\` and `Logo Graphics\` — but that was luck rather than design.**
+
+There are exactly three safe places for a file inside the working directory:
+
+1. **Tracked in git** — it survives because `git clean` only removes untracked files.
+2. **Inside `Documentation/`** — the one directory every clean excludes.
+3. **Listed in `.gitignore`** — `git clean -fd` without `-x` leaves ignored files alone, which is
+   why `.env` survives every session.
+
+Anything else — source copy, design asset, draft, archive — lives **outside** the working directory
+entirely. Do not add per-file `--exclude=` flags to the pre-flight to protect a stray root file;
+that is a one-session workaround that silently becomes permanent. Move the file instead.
+
 ---
 
 ## 7. Jira Operational Notes
@@ -348,8 +370,16 @@ The negative test injects `<a href="does-not-exist.html">` into a copy of `dist/
 confirms linkinator reports `[404]` and exits 1. If the positive test ever reports a scanned-link
 count of 0, or the negative test exits 0, the check is inert — fix it before trusting a green run.
 
-Note the count: **2** internal links (the page and `logo.png`). External URLs are skipped by
+Note the count: **3** internal links — the crawl root (`dist`, i.e. the page itself), the emitted
+stylesheet (`dist/_astro/index.*.css`), and `dist/logo.png`. External URLs are skipped by
 `.linkinatorrc.json` on purpose, so a Google Fonts outage cannot fail a blocking check.
+
+> **Corrected in Sprint 2 (SWEB-10).** This said **2** from Sprint 1, omitting the stylesheet.
+> Measured on 2026-08-07: linkinator reports 3, both before and after `public/robots.txt` was
+> added — `robots.txt` is never crawled because nothing links to it. The number matters because
+> this section tells you to treat an unexpectedly low count as evidence the check is inert; a
+> future session seeing 3 against a documented 2 would chase a phantom regression. Expect this
+> count to change whenever a page, image, or stylesheet is added — re-measure rather than assuming.
 
 ### Config files read by non-Windows tools *(learned Sprint 1)*
 
@@ -387,8 +417,11 @@ or don't add the job.
 - `RUNBOOK.md`
 - `PROMPT_TEMPLATE.md`
 - `HANDOFF_TEMPLATE.md`
-- The requirements document
-- Each phase's Jira ticket document
+- `CONTENT_REQUIREMENTS.md` — the requirements document. Page content is gated on D1–D7 in it, so
+  a planning session without it cannot scope a content sprint
+- `SWEB_Sprint<n>_Jira_Tickets.md` — one per sprint. Owner-approved scope; `PROMPT_TEMPLATE.md`
+  §5a requires Claude Code to transcribe it rather than author ticket content, so a sprint whose
+  tickets document is missing from the Project cannot start
 - Each sprint's Claude Code prompt
 
 ### Why this matters
@@ -436,12 +469,19 @@ Two rules follow from SWEB-7, where three inherited claims turned out to be wron
 | `Out-File -Encoding utf8` writes a BOM | Breaks JSON config parsing in cross-platform tools | Use `[IO.File]::WriteAllText()` (§8) |
 | A global Jira field context ≠ the field being on a screen | `GET /field` lists it; ticket creation silently drops it | Verify via `createmeta` (§7) |
 | Pages `build_type` lies about the active deploy path | Reported `legacy` while the Actions artifact was serving | Compare live HTML against `dist/` (§3) |
-| A red `pages build and deployment` run on every `main` push | GitHub's stock Jekyll builder, failing since before Sprint 1; not in our `ci.yml` | Expected. Harmless — it never produces an artifact. Switching the Pages source retires it |
+| ~~A red `pages build and deployment` run on every `main` push~~ | **Resolved 2026-08-07 (Sprint 2).** GitHub's stock Jekyll builder, failing since before Sprint 1 and never caused by sprint work; not in our `ci.yml` | Retired by the Pages source flip. Observed: `17f2433`, `4abf377`, `19fb7b8` each triggered one; `d41545e` triggered none |
+| The repo root is not a safe parking spot for source material | The pre-flight `git clean -fd --exclude=Documentation/` destroys every untracked root file at the start of every session | Keep source material outside the working directory (§6) |
 | DNS guidance often says "remove existing records" | Following it takes down company mail | Additive changes only (§5) |
 
 ---
 
-*Last updated: 2026-08-06 — SWEB-7 (PR #4): corrected the SonarCloud claim in §8 (invented duration
+*Last updated: 2026-08-07 — Sprint 2 (SWEB-8 … SWEB-10, PR #5): recorded the repo-root parking
+hazard in §6 and §10, marked the red `pages build and deployment` row resolved in §10, and added
+`CONTENT_REQUIREMENTS.md` and `SWEB_Sprint<n>_Jira_Tickets.md` to the §9 required-files list. §3's
+deploy-path verification procedure was deliberately retained in full — the technique survived the
+condition that produced it.*
+
+*Previously: 2026-08-06 — SWEB-7 (PR #4): corrected the SonarCloud claim in §8 (invented duration
 removed), removed an unverified FPRM claim from §9, and added §9 guidance on citing the source file
 when carrying a lesson across projects.*
 

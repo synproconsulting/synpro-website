@@ -1,0 +1,10 @@
+# Crawler lockout for the duration of the build programme - see AD-10
+# (PROJECT_CONTEXT.md section 6). `main` is production, so every page merged
+# before the cutover is publicly fetchable at its route even though nothing
+# links to it.
+#
+# This file is lifted ONLY in the cutover PR, in the same commit that publishes
+# the nav and the real Home page. Lifting it earlier exposes half-built pages
+# under the company's own name.
+User-agent: *
+Disallow: /
