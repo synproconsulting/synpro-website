@@ -29,11 +29,17 @@ now produced by an Astro build rather than served as a raw file. `package.json`,
 `format`, `links`) gate a ported rule-based auto-merger. DNS is configured at Namecheap (four
 GitHub Pages apex A records + `www` CNAME) and TLS is issued.
 
-**Pages source has not yet been switched.** GitHub Pages is still on `build_type: legacy`,
-deploying from the `main` branch root. The Actions `deploy` job is written, wired, and
-non-blocking — it will fail on every run until the owner flips Settings → Pages → Source to
-"GitHub Actions". Until that flip, the root `index.html`, `logo.png`, and `CNAME` are what serve
-the live site and must not be deleted.
+**The Actions deploy is live and serving production.** The `deploy` job succeeded on the first
+merge to `main`, and `https://synproconsulting.co` now serves the Astro build artifact, not the
+`main` branch root. Verified: the live HTML is byte-equal to local `dist/index.html`, `/CNAME`
+still returns `synproconsulting.co`, and the rendered page is visually identical to the
+pre-Sprint-1 placeholder (all CSS differences are leading-zero notation).
+
+**But the Pages *setting* still disagrees with reality.** `GET /repos/.../pages` reports
+`build_type: legacy` with `source: main/` while the artifact is what serves. Until the owner
+explicitly sets Settings → Pages → Source to "GitHub Actions", the root `index.html`, `logo.png`,
+and `CNAME` must stay — anything that triggers a legacy Jekyll build could republish the repo root
+and silently revert the deploy path.
 
 ---
 
@@ -391,10 +397,14 @@ follow-ups live in `CLAUDE_HISTORY.md`.*
 - **Cloudflare Worker not yet created.** The contact form has no endpoint. Until the sprint that
   takes it, the site has no working contact path.
 - **Repo is public.** GitHub Pages on a free plan requires it. Nothing in these docs is sensitive, but every future commit is world-readable — never commit a secret, an internal contact, or client-identifying material.
-- **Pages source still on branch-root deploy.** The `deploy` job is expected to fail on every run
-  until the owner switches Settings → Pages → Source to "GitHub Actions". It is
-  `continue-on-error: true`, so it cannot block a merge — but per AD-6 that also means it can stay
-  red unnoticed. Re-check it at the next closeout.
+- **Pages source setting contradicts what is actually serving.** The `deploy` job succeeds and the
+  Actions artifact is live, but the Pages API still reports `build_type: legacy` / `source: main/`.
+  **Owner action:** explicitly set Settings → Pages → Source to "GitHub Actions" so the stored
+  configuration matches reality. Until then the deploy path is not stable — a legacy Jekyll build
+  could republish the repo root over it. Do not trust `build_type` alone to tell you which path is
+  serving; compare the live HTML against `dist/` (see `RUNBOOK.md` §3).
+- **`deploy` is `continue-on-error: true`** and therefore can fail unnoticed (AD-6's own
+  consequence note). Check it at every sprint closeout.
 - **Root `index.html`, `logo.png`, and `CNAME` are duplicated in `public/`.** Both copies exist
   deliberately: Pages still serves the root, so deleting it would take the site down. Removing the
   root duplicates is a **Sprint 2 task**, to be done only after the source flip is verified on the

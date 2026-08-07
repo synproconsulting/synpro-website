@@ -96,6 +96,38 @@ passthrough directory (`public/CNAME`) and redeploy. See `CLAUDE.md` Hard Rules 
 For any change that could take the site down, verify on
 `https://synproconsulting.github.io/synpro-website/` before letting the custom domain follow.
 
+### Determining which deploy path is actually serving *(learned Sprint 1 / SWEB-6)*
+
+**Do not trust `build_type` from the Pages API.** At Sprint 1 close it reported
+`build_type: legacy` with `source: main/` while the GitHub Actions artifact was demonstrably what
+visitors were being served. The field describes the stored setting, not the live delivery path.
+
+The reliable check is to compare the served bytes against the build output:
+
+```powershell
+$live = (Invoke-WebRequest -UseBasicParsing 'https://synproconsulting.co/').Content
+$dist = [IO.File]::ReadAllText('dist\index.html')
+$live.Trim() -eq $dist.Trim()      # True  => the Actions artifact is serving
+```
+
+If that is `False`, compare against the repo-root `index.html` instead — a `True` there means a
+legacy branch build has taken over and republished the root. The two candidate sources differ
+substantially in size, so the comparison is never ambiguous.
+
+Also useful: `GET /repos/{owner}/{repo}/deployments?environment=github-pages` shows whether an
+Actions deployment succeeded and when.
+
+### Proving a "no visible change" deploy really is invisible
+
+When a sprint's premise is that visitors see nothing different, prove it rather than assuming it:
+
+1. Compare the **body markup** with whitespace normalised. Differences in inter-block whitespace,
+   `<img />` vs `<img>`, and `&` vs `&amp;` are parse-identical and safe.
+2. Compare the **stylesheet rule-by-rule** with whitespace stripped. Leading-zero differences
+   (`.9s` vs `0.9s`) are safe. **A dropped vendor prefix is not** — see the `-webkit-background-clip`
+   entry in §10.
+3. Confirm `/CNAME` still returns `synproconsulting.co` over HTTP.
+
 ---
 
 ## 4. Testing the Contact Form
@@ -387,12 +419,14 @@ Do this at the session boundary, as part of closeout — not "later".
 | A CSS minifier can drop a vendor prefix | `-webkit-background-clip` stripped while `-webkit-text-fill-color: transparent` was kept → invisible text | `cssMinify: false`; diff rendered output, not source |
 | `Out-File -Encoding utf8` writes a BOM | Breaks JSON config parsing in cross-platform tools | Use `[IO.File]::WriteAllText()` (§8) |
 | A global Jira field context ≠ the field being on a screen | `GET /field` lists it; ticket creation silently drops it | Verify via `createmeta` (§7) |
+| Pages `build_type` lies about the active deploy path | Reported `legacy` while the Actions artifact was serving | Compare live HTML against `dist/` (§3) |
 | DNS guidance often says "remove existing records" | Following it takes down company mail | Additive changes only (§5) |
 
 ---
 
-*Last updated: 2026-08-06 — Sprint 1 (SWEB-1 … SWEB-5, PR #1): local dev commands (§6), SWEB field
-IDs and screen-verification procedure (§7), auto-merger check names, `PAT_TOKEN` requirement, and
-the control-liveness negative test (§8).*
+*Last updated: 2026-08-06 — Sprint 1 (SWEB-1 … SWEB-6, PRs #1 and #2): local dev commands (§6),
+SWEB field IDs and screen-verification procedure (§7), auto-merger check names, `PAT_TOKEN`
+requirement, the control-liveness negative test (§8), and how to determine which deploy path is
+actually serving (§3).*
 *Update this file whenever a new operational lesson is learned — do not let lessons live only in
 chat transcripts.*

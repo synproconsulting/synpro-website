@@ -108,11 +108,20 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     if: github.ref == 'refs/heads/main'
-    # EXPECTED TO FAIL until the owner switches Settings → Pages → Source from
-    # "Deploy from a branch" to "GitHub Actions" (SWEB-4). Until that flip, Pages is
-    # still serving the main branch root and actions/deploy-pages has nothing to
-    # publish to. A red `deploy` here is not a defect — check the Pages source first.
-    # It is continue-on-error so it can never block the auto-merger (AD-6).
+    # This job publishes what visitors actually see. As of Sprint 1 (SWEB-6) it
+    # succeeds, and https://synproconsulting.co is served from this artifact — the
+    # Sprint 1 prediction that it would fail until a manual source switch was wrong;
+    # actions/configure-pages@v6 published on the first run.
+    #
+    # Caveat worth knowing before you touch this: GET /repos/.../pages still reports
+    # `build_type: legacy` with `source: main/`. Serving comes from the artifact, but
+    # the stored setting disagrees. Until the owner explicitly sets Settings → Pages →
+    # Source to "GitHub Actions", anything that triggers a legacy Jekyll build could
+    # republish the repo root and silently revert the deploy path.
+    #
+    # It stays continue-on-error so it can never block the auto-merger (AD-6) — which
+    # per AD-6's own consequence note means it can also fail unnoticed. Check it at
+    # every sprint closeout.
     continue-on-error: true
     permissions:
       contents: read

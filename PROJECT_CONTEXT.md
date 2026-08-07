@@ -160,12 +160,29 @@ requires a browserslist-driven Lightning CSS target **and** a visual re-check of
 
 GitHub Pages, published from the `dist` artifact on `main` only.
 
-**Currently expected to fail.** Pages is still on `build_type: legacy`, serving the `main` branch
-root. `actions/deploy-pages` cannot publish until the owner switches Settings → Pages → Source to
-"GitHub Actions". The job is `continue-on-error: true` so it can never block the auto-merger
-(AD-6), and carries an inline comment saying so, so a future reader does not chase it as a defect.
+**This job is live and serves production.** Sprint 1 predicted it would fail until a manual Pages
+source switch; that prediction was wrong (SWEB-6). `actions/configure-pages@v6` published on the
+first merge, and `synproconsulting.co` has served the build artifact since — verified by fetching
+the live HTML and finding it byte-equal to local `dist/index.html`.
 
-Per AD-6's own consequence note, that also means it can sit red indefinitely. Check it at closeout.
+**The stored Pages setting disagrees with what is serving.** `GET /repos/.../pages` reports:
+
+```
+build_type: legacy      source: { branch: main, path: / }
+```
+
+…while the content served is the Actions artifact. Two consequences:
+
+1. **`build_type` is not a reliable indicator of the active deploy path.** To determine which path
+   is serving, fetch the live HTML and compare it to `dist/index.html`. The branch-root
+   `index.html` and the built one differ substantially in size, so the comparison is unambiguous.
+2. **The deploy path is not yet stable.** Until the owner explicitly sets Settings → Pages → Source
+   to "GitHub Actions", anything that triggers a legacy Jekyll build could republish the repo root
+   over the artifact and silently revert the deploy. This is why the root `index.html`, `logo.png`,
+   and `CNAME` are still retained, and why removing them is gated on that switch.
+
+The job stays `continue-on-error: true` so it can never block the auto-merger (AD-6) — which per
+AD-6's own consequence note means it can also fail unnoticed. Check it at every closeout.
 
 ### Auto-merger
 
