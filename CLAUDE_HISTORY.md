@@ -396,4 +396,97 @@ None. No architectural decision changed — a measurement was attributed to the 
 
 ---
 
-*Next entry: Sprint 3.*
+## Sprint 3 — Design System  ·  2026-08-07
+
+**PRs merged:** #7
+**Fix version / native sprint:** `11100` / `1073`
+**Jira keys:** SWEB-12 … SWEB-14
+**Blocking CI checks at close:** `build`, `format`, `links`
+**Live site state at close:** Visually unchanged, and this time proven rather than asserted — the
+rendered page is **pixel-identical** to the pre-sprint build at 1920×1080, 1280×800, 768×1024, and
+375×812. Underneath it is a different site: the typeface is served from our own origin instead of a
+third-party CDN, all styling comes from a token layer, and the page now carries a favicon, an
+Apple touch icon, and an Open Graph card. `dist/index.html` grew from 5102 to 18705 bytes, entirely
+from the inlined token stylesheet and the new `<head>` metadata.
+
+> **This sprint ran across two sessions.** The first was cut off by an API error partway through
+> SWEB-13, leaving the work uncommitted with no branch and no PR. The second session resumed from
+> that working tree. See lesson 1.
+
+### What landed
+
+- **SWEB-12** — `.gitattributes` (`* text=auto eol=lf`, plus explicit `binary` for images, fonts
+  and archives) and an explicit `build.inlineStylesheets: 'always'`. Together these remove both
+  causes of the Sprint 2 local-vs-CI divergence. Proof: after re-checkout, a local `npm run build`
+  produced `dist/index.html` **byte-identical to the live page** — 5102 bytes, SHA-256
+  `C29ACF6C…0BA63` — where the same command had previously produced 1093 bytes.
+- **SWEB-13** — `src/styles/{tokens,fonts,global}.css`. The brand palette sampled from the logo,
+  kept deliberately separate from the placeholder's own `--ui-*` colours; surfaces, text, a fluid
+  type scale, spacing, breakpoints, content max-width, motion, and focus tokens. Sora self-hosted
+  as a single variable `.woff2` with its OFL licence beside it. `BaseLayout.astro` and
+  `index.astro` refactored to consume tokens with no hardcoded colour, font, or spacing left.
+- **SWEB-14** — `favicon.ico` (16/32/48), `apple-touch-icon.png` (180×180), `og-image.png`
+  (1200×630), and the `<head>` wiring for all three plus a canonical link.
+
+### ADs recorded
+
+None. Sprint 3 implemented existing decisions rather than making new ones: AD-9's passthrough
+pattern now carries fonts and icons as well as `CNAME`, and AD-10's lockout was left untouched.
+The two substantive build decisions — `inlineStylesheets: 'always'` and the `.gitattributes`
+policy — are recorded in `PROJECT_CONTEXT.md` §4 as build configuration, not as architectural
+decisions, because either can be reversed without changing the shape of the system.
+
+### Lessons
+
+1. **The standard pre-flight sync is destructive to uncommitted work, and a resumed session must
+   verify state instead of resetting it.** `git reset --hard origin/main` followed by
+   `git clean -fd` is safe only because a normal session starts with nothing to lose. After the
+   first session died mid-sprint, running it would have destroyed `.gitattributes`, `public/fonts/`,
+   `src/styles/`, and both modified files — the entire body of SWEB-12 and SWEB-13. The resume
+   replaced the sync with five explicit checks: HEAD equals `origin/main`, the modified and
+   untracked file list matches expectation, no feature branch exists locally or remotely, the
+   tickets document is present, and zero PRs are open. **A guarantee can be satisfied by
+   verification as well as by reset**, and when the two conflict, verification is the one that does
+   not lose work.
+2. **A prior session's reported results are hearsay until reproduced — but they can be promoted to
+   evidence rather than simply re-run.** The interrupted session left a `dist_before` directory it
+   claimed was the baseline. Rather than trust it or rebuild from scratch, its SHA-256 was compared
+   against the live site: identical, which *proves* it is `origin/main`'s published build. That
+   converted an untrusted artefact into a verified one in a single command.
+3. **Two fixes the first session had identified but not applied were still outstanding — and one of
+   them was a wrong number.** `tokens.css` carried contrast ratios that were plausible estimates
+   (15.85, 7.53, 16.44) rather than computed values (14.39, 6.94, 16.72). This is the SWEB-11
+   failure mode surviving into a third sprint: numbers written into a canonical artefact before
+   anyone measured them. Recomputed and corrected. **An interrupted session's half-finished
+   intentions are exactly where unverified claims hide.**
+4. **A verification grep must not be able to match its own explanation.** SWEB-13's acceptance
+   criterion is "no font-CDN reference in `dist/`", checked by grepping for the two hostnames.
+   Because the stylesheet is inlined into every page, naming those hostnames in a source comment
+   made the check report a hit forever. The comment was reworded to describe them without spelling
+   them. **A check that always fires is worth exactly as much as one that never does** — the
+   Sprint 1 link checker that scanned zero links is the same failure from the other direction.
+5. **Cropping to "artwork bounds" was the wrong instruction for the favicon, and following it
+   literally would have shipped mush.** The tickets document described the source as a 1036×1036
+   canvas with artwork at 0–1023 and a 12px gutter. Measured, it is 1024×1024 with the artwork at
+   (233, 102)–(1005, 966) — and it is a *stacked lockup*: spiral above "SynPro" above "CONSULTING".
+   Cropping to full artwork bounds would have squeezed three stacked elements into 16 pixels. The
+   favicon was cropped to the **spiral alone**, found by locating the empty alpha rows between the
+   elements, and verified legible at 16px and 32px on both light and dark. **Measure the asset;
+   do not take its geometry from the ticket.**
+6. **"No visible change" is worth proving with pixels, not bytes.** `dist/index.html` grew by 3.6×,
+   so a byte comparison would have said nothing useful. Rendering the before and after in headless
+   Chromium and differencing the images gave a real answer — zero differing pixels at four
+   viewports, including 375×812 where the `clamp()` type scales resolve differently. The token
+   refactor touched every rule on the page; nothing else would have caught a one-pixel drift.
+7. **A canonical doc can forbid the thing the next sprint is chartered to do.** `RUNBOOK.md` §8 said
+   in as many words: *"Do not fix this. Do not change `core.autocrlf`, add a `.gitattributes`…"* —
+   written by the session that diagnosed SWEB-11 and judged the divergence not worth touching.
+   SWEB-12 is that fix, owner-approved. The guidance was **explicitly reversed in the doc with the
+   reasoning recorded**, not quietly contradicted, because the original judgement was defensible:
+   it objected to disturbing correct production output, and `.gitattributes` does not disturb it —
+   CI was already LF. **When new work contradicts standing written guidance, rewrite the guidance
+   in the same PR and say why.**
+
+---
+
+*Next entry: Sprint 4.*

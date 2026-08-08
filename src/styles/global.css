@@ -1,0 +1,199 @@
+/**
+ * Global base + placeholder styles  (SWEB-13)
+ *
+ * Every declaration here consumes a token from tokens.css. No literal colour, font,
+ * or spacing value appears below.
+ *
+ * This file is a REFACTOR, not a redesign. Each rule reproduces exactly what the
+ * hand-built placeholder rendered before SWEB-13; the values simply moved behind
+ * names. Verified by pixel-comparing a headless-Chromium screenshot before and
+ * after. If you change a value here, you are changing the live site.
+ *
+ * Loaded globally rather than scoped: these rules target html, body and the
+ * universal selector, which Astro's default scoping would rewrite into
+ * attribute-qualified selectors and break.
+ */
+
+/* ---------------------------------------------------------------- reset */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+/* ---------------------------------------------------------------- base */
+body {
+  font-family: var(--font-sans);
+  background: var(--ph-bg-gradient);
+  color: var(--text-primary);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-6);
+  overflow: hidden;
+  position: relative;
+}
+
+/* ------------------------------------------------------- focus visibility
+ * WCAG 2.2 AA (2.4.7 Focus Visible, 2.4.11 Focus Appearance). Declared now so
+ * the first interactive element the site gains is accessible by default rather
+ * than by remembering. The placeholder has no focusable content, so this rule
+ * is currently inert — that is intentional, not dead code.
+ */
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* ---------------------------------------------------------------- auras */
+.aura {
+  position: fixed;
+  border-radius: var(--ph-aura-radius);
+  filter: blur(var(--ph-aura-blur));
+  opacity: var(--ph-aura-opacity);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.aura--blue {
+  width: var(--ph-aura-size);
+  height: var(--ph-aura-size);
+  background: var(--ui-blue);
+  top: var(--ph-aura-top);
+  left: calc(50% - var(--ph-aura-offset));
+}
+
+.aura--green {
+  width: var(--ph-aura-size);
+  height: var(--ph-aura-size);
+  background: var(--ui-green);
+  bottom: var(--ph-aura-bottom);
+  right: calc(50% - var(--ph-aura-offset));
+}
+
+/* ---------------------------------------------------------------- stage */
+.stage {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: rise var(--duration-slow) var(--ease-out-soft) both;
+}
+
+.logo-wrap {
+  width: var(--ph-logo-size);
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: var(--ph-logo-shadow);
+}
+
+.logo-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.tagline {
+  margin-top: var(--ph-tagline-lift);
+  font-size: var(--ph-tagline-size);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  color: var(--text-primary);
+  opacity: var(--ph-tagline-opacity);
+  animation: fade var(--duration-fast) ease var(--ph-delay-tagline) both;
+}
+
+.divider {
+  width: 0;
+  height: var(--ph-divider-height);
+  margin: var(--ph-divider-margin);
+  background: linear-gradient(90deg, var(--ui-blue) 0%, var(--ui-lime) 100%);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--ph-divider-glow);
+  animation: draw var(--duration-draw) var(--ease-out-soft) var(--ph-delay-divider) both;
+}
+
+.status {
+  font-size: var(--ph-status-size);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-normal);
+  color: var(--text-primary);
+  animation: fade var(--duration-fast) ease var(--ph-delay-status) both;
+}
+
+/* The gradient-clipped word. `-webkit-background-clip` is load-bearing: Lightning
+ * CSS stripped it in Sprint 1 while keeping -webkit-text-fill-color: transparent,
+ * which renders this text invisible. cssMinify stays false because of it — see the
+ * Known Issue in CLAUDE.md. Verify this renders visually, never by reading source. */
+.status .soon {
+  background: linear-gradient(90deg, var(--ui-blue-bright) 0%, var(--ui-lime) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: var(--weight-semibold);
+}
+
+footer {
+  position: fixed;
+  bottom: var(--ph-footer-bottom);
+  left: 0;
+  right: 0;
+  z-index: 1;
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  animation: fade var(--duration-fast) ease var(--ph-delay-footer) both;
+}
+
+/* ---------------------------------------------------------------- motion */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--ph-stage-rise));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes draw {
+  from {
+    width: 0;
+  }
+  to {
+    width: var(--ph-divider-width);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+  }
+  .divider {
+    width: var(--ph-divider-width);
+  }
+}

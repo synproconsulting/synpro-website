@@ -1,0 +1,34 @@
+# Line-ending policy for synproconsulting.co  (SWEB-12)
+#
+# WHY THIS FILE EXISTS. `core.autocrlf=true` on the owner's Windows machine gave the
+# working copy CRLF while the repository stores LF. That is normally cosmetic, but here
+# it changed the SHAPE of the build output: the extra CR bytes inflated the compiled
+# stylesheet from 4013 to 4216 bytes, across Astro's 4096-byte `inlineStylesheets: 'auto'`
+# threshold. The local build emitted the stylesheet as a separate file (1093-byte page,
+# 3 crawlable links) while CI inlined it (5102-byte page, 2 links) — from the same commit.
+# That divergence produced the SWEB-11 defect in Sprint 2: a local measurement was written
+# into RUNBOOK.md as CI's expected value.
+#
+# `.gitattributes` is repo-scoped and travels with the project; a local `core.autocrlf`
+# setting does not, so it would not protect the next machine or the next contributor.
+#
+# This normalises the working copy to match the index. CI already checks out LF, so CI
+# output does not change. See PROJECT_CONTEXT.md §2 and RUNBOOK.md §3/§8.
+
+* text=auto eol=lf
+
+# Binary assets must never be line-ending converted. Git's auto-detection normally gets
+# these right, but a corrupted logo or font is an expensive way to discover an edge case.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.eot   binary
+*.pdf   binary
+*.zip   binary
