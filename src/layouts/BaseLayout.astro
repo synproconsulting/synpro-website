@@ -2,17 +2,33 @@
 /**
  * Shared page shell for synproconsulting.co.
  *
- * The <style> block is `is:global` on purpose: these rules target html, body and
- * the universal selector, which Astro's default scoping would rewrite and break.
- * Keeping it global reproduces the original placeholder stylesheet byte-for-byte
- * in behaviour.
+ * All styling lives in src/styles/ as of SWEB-13. The import order below is the
+ * cascade order and matters: tokens define the custom properties, fonts declares
+ * the @font-face that references them, global consumes both.
+ *
+ * These are imported rather than inlined in a <style> block so the token layer is
+ * shared by every future route instead of being copied per layout. Astro bundles
+ * them into one stylesheet; `build.inlineStylesheets: 'always'` in astro.config.mjs
+ * then inlines that into the page (see PROJECT_CONTEXT.md §2).
+ *
+ * The rules are global, not scoped: they target html, body and the universal
+ * selector, which Astro's scoping would rewrite and break.
  */
+import '../styles/tokens.css';
+import '../styles/fonts.css';
+import '../styles/global.css';
+
 interface Props {
   title: string;
   description: string;
 }
 
 const { title, description } = Astro.props;
+
+// Absolute URLs. Open Graph scrapers do not resolve relative paths, so these are
+// built against `site` in astro.config.mjs rather than written as "/og-image.png".
+const ogImage = new URL('/og-image.png', Astro.site);
+const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
 
 <!doctype html>
@@ -22,180 +38,48 @@ const { title, description } = Astro.props;
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
     <meta name="description" content={description} />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="canonical" href={canonical} />
+
+    <!--
+      Icons (SWEB-14). favicon.ico carries 16/32/48/64/128/256 frames. The source
+      artwork is a stacked lockup — spiral above "SynPro" above "CONSULTING" — so
+      the icon is cropped to the SPIRAL ALONE. Cropping to the full artwork bounds,
+      as originally specified, would shrink three stacked elements into 16px and
+      produce mush; verified legible at 16 and 32 only after the tighter crop.
+    -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!--
+      Open Graph. og:image alone does not produce a card - title, type and url are
+      required for the major scrapers to render one, so they travel together.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="SynPro Consulting" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="SynPro Consulting" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content={ogImage} />
+
+    <!--
+      Sora is self-hosted (SWEB-13). The Google Fonts <link> and its two
+      preconnects were removed: they disclosed every visitor's IP to a third
+      party and blocked first render. Preloading the one variable font file
+      keeps it off the critical path without a cross-origin round trip.
+    -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      href="/fonts/sora-latin-var.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
-    <style is:global>
-      :root {
-        --blue: #2f6fe0;
-        --blue-deep: #0a3aa0;
-        --green: #3aa80c;
-        --lime: #a1c60c;
-        --ink: #eaf0fb;
-        --muted: #8a97ad;
-        --bg-0: #0a0f1c;
-        --bg-1: #111a2e;
-      }
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-      html,
-      body {
-        height: 100%;
-      }
-      body {
-        font-family:
-          'Sora',
-          -apple-system,
-          BlinkMacSystemFont,
-          'Segoe UI',
-          sans-serif;
-        background: radial-gradient(
-          1100px 640px at 50% -8%,
-          #16223d 0%,
-          var(--bg-1) 40%,
-          var(--bg-0) 100%
-        );
-        color: var(--ink);
-        min-height: 100dvh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        padding: 2rem;
-        overflow: hidden;
-        position: relative;
-      }
-      .aura {
-        position: fixed;
-        border-radius: 50%;
-        filter: blur(100px);
-        opacity: 0.3;
-        pointer-events: none;
-        z-index: 0;
-      }
-      .aura--blue {
-        width: 560px;
-        height: 560px;
-        background: var(--blue);
-        top: -200px;
-        left: calc(50% - 440px);
-      }
-      .aura--green {
-        width: 560px;
-        height: 560px;
-        background: var(--green);
-        bottom: -220px;
-        right: calc(50% - 440px);
-      }
-      .stage {
-        position: relative;
-        z-index: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        animation: rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-      }
-      .logo-wrap {
-        width: min(360px, 74vw);
-        aspect-ratio: 1/1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        filter: drop-shadow(0 14px 40px rgba(20, 60, 140, 0.35));
-      }
-      .logo-wrap img {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-        display: block;
-      }
-      .tagline {
-        margin-top: -0.3rem;
-        font-size: clamp(0.82rem, 1.5vw, 1rem);
-        font-weight: 500;
-        letter-spacing: 0.28em;
-        text-transform: uppercase;
-        color: var(--ink);
-        opacity: 0.9;
-        animation: fade 0.8s ease 0.65s both;
-      }
-      .divider {
-        width: 0;
-        height: 2px;
-        margin: 1.9rem 0 1.6rem;
-        background: linear-gradient(90deg, var(--blue) 0%, var(--lime) 100%);
-        border-radius: 2px;
-        box-shadow: 0 0 18px rgba(90, 150, 255, 0.4);
-        animation: draw 1s cubic-bezier(0.2, 0.7, 0.2, 1) 0.55s both;
-      }
-      .status {
-        font-size: clamp(0.98rem, 1.2vw, 1.08rem);
-        font-weight: 500;
-        letter-spacing: 0.02em;
-        color: var(--ink);
-        animation: fade 0.8s ease 0.85s both;
-      }
-      .status .soon {
-        background: linear-gradient(90deg, #5b9bff 0%, var(--lime) 100%);
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 600;
-      }
-      footer {
-        position: fixed;
-        bottom: 1.4rem;
-        left: 0;
-        right: 0;
-        z-index: 1;
-        font-size: 0.72rem;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: var(--muted);
-        animation: fade 0.8s ease 1.2s both;
-      }
-      @keyframes rise {
-        from {
-          opacity: 0;
-          transform: translateY(18px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-      @keyframes draw {
-        from {
-          width: 0;
-        }
-        to {
-          width: min(230px, 58vw);
-        }
-      }
-      @keyframes fade {
-        from {
-          opacity: 0;
-        }
-        to {
-          opacity: 1;
-        }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        * {
-          animation: none !important;
-        }
-        .divider {
-          width: min(230px, 58vw);
-        }
-      }
-    </style>
+    <slot name="head" />
   </head>
   <body>
     <slot />

@@ -22,15 +22,25 @@ for planning and prompt authoring, Claude Code as the Dev Agent, a rule-based au
 **Owner:** Johan Wessels — SynPro Consulting
 **Started:** August 2026
 
-**Last PR merged:** #5 (SWEB-8, SWEB-9, SWEB-10 — Sprint 2 foundations; no visible change).
+**Last PR merged:** #7 (SWEB-12, SWEB-13, SWEB-14 — Sprint 3 design system; no visible change).
 
-**Current state:** Sprint 2 complete. The build pipeline is established. The same single-page
-placeholder (logo + "coming soon") a visitor saw before Sprint 1 is still what they see — it is
-now produced by an Astro build rather than served as a raw file. `package.json`, `astro.config.mjs`,
-`src/`, `public/`, and `.github/workflows/ci.yml` all exist; three blocking CI checks (`build`,
-`format`, `links`) gate a ported rule-based auto-merger. DNS is configured at Namecheap (four
-GitHub Pages apex A records + `www` CNAME) and TLS is issued. The site is crawler-locked by
-`public/robots.txt` until the cutover (AD-10).
+**Current state:** Sprint 3 complete. The single-page placeholder (logo + "coming soon") a visitor
+saw before Sprint 1 is *still exactly* what they see — verified pixel-identical at four viewports —
+but it is now built on a real foundation. `package.json`, `astro.config.mjs`, `src/`, `public/`, and
+`.github/workflows/ci.yml` all exist; three blocking CI checks (`build`, `format`, `links`) gate a
+ported rule-based auto-merger. DNS is configured at Namecheap (four GitHub Pages apex A records +
+`www` CNAME) and TLS is issued. The site is crawler-locked by `public/robots.txt` until the cutover
+(AD-10).
+
+**The design system exists and the placeholder consumes it.** `src/styles/` holds the token layer —
+brand palette sampled from the logo, surfaces, type scale, spacing, breakpoints, focus states — with
+WCAG 2.2 AA as an enforced floor and light/dark usability encoded in the tokens themselves. Full
+reference in `PROJECT_CONTEXT.md` §7. **Sora is self-hosted**; no third-party font request remains.
+The site has a favicon, an Apple touch icon, and an Open Graph card.
+
+**Local builds now match CI byte-for-byte.** `.gitattributes` and an explicit
+`build.inlineStylesheets: 'always'` removed the divergence that caused the Sprint 2 SWEB-11 defect,
+so a local `npm run build` can once again be trusted to tell you what production will serve.
 
 **The Actions deploy is live and serving production.** The `deploy` job succeeded on the first
 merge to `main`, and `https://synproconsulting.co` now serves the Astro build artifact, not the
@@ -268,7 +278,7 @@ a defined removal point, not a permanent setting. Full text in `PROJECT_CONTEXT.
 
 ---
 
-## Project Structure (actual — as of Sprint 2)
+## Project Structure (actual — as of Sprint 3)
 
 ```
 synpro-website/
@@ -276,15 +286,26 @@ synpro-website/
 │   ├── pages/
 │   │   └── index.astro       # The placeholder page — the site's only route
 │   ├── layouts/
-│   │   └── BaseLayout.astro  # Page shell: head, global stylesheet, <slot />
+│   │   └── BaseLayout.astro  # Page shell: head, style imports, <slot />
+│   ├── styles/               # The design system (SWEB-13)
+│   │   ├── tokens.css        # Every custom property. No rules.
+│   │   ├── fonts.css         # Single @font-face — self-hosted Sora
+│   │   └── global.css        # Reset, base, focus, placeholder rules
 │   └── components/           # Empty (.gitkeep) — populated as sections are built
 ├── public/                   # Static passthrough — copied verbatim into dist/
 │   ├── CNAME                 # CRITICAL — custom domain; must survive every build
 │   ├── robots.txt            # Disallow-all crawler lockout until cutover (AD-10)
-│   └── logo.png
+│   ├── logo.png              # Full lockup, alpha-intact. The on-page mark.
+│   ├── favicon.ico           # 16/32/48 — cropped to the SPIRAL only
+│   ├── apple-touch-icon.png  # 180×180 on --surface-base
+│   ├── og-image.png          # 1200×630 Open Graph card
+│   └── fonts/
+│       ├── sora-latin-var.woff2   # Variable, wght 400–800, latin subset
+│       └── OFL.txt                # SIL OFL 1.1 — required to travel with the font
 ├── .github/
 │   └── workflows/
 │       └── ci.yml            # build, format, links, deploy, auto-merge
+├── .gitattributes            # text=auto eol=lf — keeps local builds equal to CI
 ├── astro.config.mjs
 ├── package.json
 ├── package-lock.json
@@ -325,8 +346,8 @@ synpro-website/
 | Sprint field | `customfield_10020` |
 | Story points field | **`customfield_10036`** ("Story Points") |
 | Execution order field | `customfield_10071` |
-| Sprint fix version IDs | Sprint 1 → `11066` · Sprint 2 → `11099` |
-| Native sprint IDs | Sprint 1 → `1039` · Sprint 2 → `1072` |
+| Sprint fix version IDs | Sprint 1 → `11066` · Sprint 2 → `11099` · Sprint 3 → `11100` |
+| Native sprint IDs | Sprint 1 → `1039` · Sprint 2 → `1072` · Sprint 3 → `1073` |
 
 > **Story points is `customfield_10036`, not `customfield_10016`.** SWEB is a company-managed
 > project and board 100's configured estimation field is `customfield_10036` ("Story Points").
@@ -423,8 +444,15 @@ provider's secret store, edited manually.
 - **CSS minification is disabled** (`vite.build.cssMinify: false` in `astro.config.mjs`). The
   default minifier strips `-webkit-background-clip: text` while retaining
   `-webkit-text-fill-color: transparent`, which renders the gradient "coming soon" text invisible
-  on engines without unprefixed `background-clip`. Revisit only with a browserslist-driven
-  Lightning CSS target, and re-verify that rule renders before re-enabling.
+  on engines without unprefixed `background-clip`.
+  **Revisit condition MET in Sprint 3; revisit DEFERRED to Sprint 4 by owner decision.** The
+  recorded trigger for reopening this was a change to the CSS pipeline, and SWEB-13 was that
+  change — the stylesheet moved into `src/styles/` and grew from ~2.5 kB to roughly 12 kB, so the
+  saving is no longer negligible. It was deliberately not re-enabled in the same PR: Sprint 3's
+  entire proof is byte-identical rendering, and switching the minifier on would have destroyed it.
+  **Sprint 4 must** test whether the regression still reproduces on the current Lightning CSS, then
+  either re-enable behind a guard or re-record this decision with fresh evidence. This is a
+  deferred decision, not an oversight.
 
 ### Resolved
 

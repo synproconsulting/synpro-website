@@ -1,0 +1,203 @@
+/**
+ * SynPro Consulting — design tokens  (SWEB-13)
+ *
+ * The single source of truth for colour, type, space, and layout. Full rationale and
+ * the accessibility rules live in PROJECT_CONTEXT.md §7; this file is the implementation.
+ *
+ * TWO PALETTES, DELIBERATELY SEPARATE — read this before using a colour.
+ *
+ *   --brand-*  are sampled from the logo artwork. They identify the company.
+ *   --ui-*     are the interface colours the placeholder was designed with. They are
+ *              lighter, higher-chroma variants chosen to sit on a near-black surface.
+ *
+ * They are NOT the same values and must not be collapsed into one set. The brand blues
+ * and greens are deep enough to be near-invisible on the dark surface; the UI colours
+ * would be wrong on a business card. Which is usable where is encoded below in the
+ * `--on-dark-*` / `--on-light-*` groups — use those, not the raw ramps.
+ */
+
+:root {
+  /* ---------------------------------------------------------------------
+   * BRAND — sampled from `SynPro Consulting logo _Transparent.png`.
+   * Every value below was verified to exist as an exact pixel in the
+   * alpha-intact source (SWEB-13). The mark is entirely gradient, so these
+   * are stops along the ramp, not flat corporate colours.
+   * ------------------------------------------------------------------- */
+  --brand-blue-deep: #011c6b;
+  --brand-blue-mid: #0043ae;
+  --brand-blue-highlight: #4fa1ea;
+  --brand-green-deep: #004000;
+  --brand-green-mid: #4e9700;
+  --brand-green-highlight: #c8ef00;
+  --brand-grey: #878787;
+
+  /* ---------------------------------------------------------------------
+   * SURFACES — the dark theme the site is built on.
+   * ------------------------------------------------------------------- */
+  --surface-base: #0a0f1c;
+  --surface-raised: #111a2e;
+  --surface-glow: #16223d;
+
+  /* ---------------------------------------------------------------------
+   * TEXT
+   * ------------------------------------------------------------------- */
+  --text-primary: #eaf0fb;
+  --text-muted: #8a97ad;
+
+  /* ---------------------------------------------------------------------
+   * UI ACCENTS — the placeholder's own palette. Preserved exactly; changing
+   * any of these changes what renders.
+   * ------------------------------------------------------------------- */
+  --ui-blue: #2f6fe0;
+  --ui-blue-deep: #0a3aa0;
+  --ui-blue-bright: #5b9bff;
+  --ui-green: #3aa80c;
+  --ui-lime: #a1c60c;
+
+  /* ---------------------------------------------------------------------
+   * USABILITY BY SURFACE — the part that stops a design system decaying
+   * into a list of hex values.
+   *
+   * Every ratio below is COMPUTED, not estimated (WCAG 2.x relative-luminance
+   * formula), and re-verified after the SWEB-11 lesson about numbers that were
+   * written down but never measured. Recompute before editing any value.
+   *
+   * ON DARK: measured against --surface-base #0a0f1c. Only colours that clear
+   * WCAG 2.2 AA body text (4.5:1) appear here. The deep brand blue (1.26:1),
+   * brand blue mid (2.20:1) and deep brand green (1.58:1) are NOT reachable
+   * through these aliases — on this surface they are effectively invisible.
+   * ------------------------------------------------------------------- */
+  --on-dark-accent: var(--brand-green-highlight); /* 14.39:1 — primary accent */
+  --on-dark-link: var(--brand-blue-highlight); /* 6.94:1 */
+  --on-dark-text: var(--text-primary); /* 16.72:1 */
+  --on-dark-text-muted: var(--text-muted); /* 6.48:1 — body-safe */
+
+  /* ON LIGHT: measured against #ffffff, for print, email, and any future
+   * light section. The highlights invert and are excluded here — brand blue
+   * highlight is 2.76:1 and brand green highlight 1.33:1 on white, both fail. */
+  --on-light-primary: var(--brand-blue-deep); /* 15.22:1 */
+  --on-light-secondary: var(--brand-blue-mid); /* 8.70:1 */
+  --on-light-accent: var(--brand-green-deep); /* 12.12:1 */
+
+  /* ---------------------------------------------------------------------
+   * TYPE — Sora, self-hosted (see fonts.css). Variable, wght axis 400-800.
+   * ------------------------------------------------------------------- */
+  --font-sans: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Fluid scale. Body sits at 1rem/16px minimum — below that is not a
+   * readable size for sustained copy. */
+  --text-xs: 0.72rem;
+  --text-sm: 0.82rem;
+  --text-base: 1rem;
+  --text-lg: clamp(1.05rem, 1.2vw, 1.15rem);
+  --text-h4: clamp(1.15rem, 1.4vw, 1.3rem);
+  --text-h3: clamp(1.35rem, 1.9vw, 1.6rem);
+  --text-h2: clamp(1.7rem, 2.8vw, 2.2rem);
+  --text-h1: clamp(2.1rem, 4.2vw, 3.2rem);
+
+  --leading-tight: 1.15;
+  --leading-snug: 1.3;
+  --leading-normal: 1.6;
+  --leading-relaxed: 1.75;
+
+  --tracking-tight: -0.01em;
+  --tracking-normal: 0.02em;
+  --tracking-wide: 0.14em;
+  --tracking-widest: 0.28em;
+
+  /* ---------------------------------------------------------------------
+   * SPACE — 4px base.
+   * ------------------------------------------------------------------- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+  --space-9: 6rem;
+  --space-10: 8rem;
+
+  /* ---------------------------------------------------------------------
+   * LAYOUT
+   * ------------------------------------------------------------------- */
+  --content-max: 68ch; /* readable line length for body copy */
+  --container-max: 1200px; /* full page gutter-to-gutter */
+  --radius-sm: 2px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* Breakpoints are documented here for reference. CSS custom properties
+   * cannot be used inside @media conditions, so the values are repeated
+   * literally in media queries — keep them in step with this list.
+   *   --bp-sm  40rem  / 640px
+   *   --bp-md  48rem  / 768px
+   *   --bp-lg  64rem  / 1024px
+   *   --bp-xl  80rem  / 1280px
+   */
+  --bp-sm: 40rem;
+  --bp-md: 48rem;
+  --bp-lg: 64rem;
+  --bp-xl: 80rem;
+
+  /* ---------------------------------------------------------------------
+   * FOCUS — WCAG 2.2 AA requires a visible focus indicator on every
+   * interactive element (2.4.7, and 2.4.11 focus-appearance). The accent
+   * is used because it is the highest-contrast token on the dark surface.
+   * ------------------------------------------------------------------- */
+  --focus-ring-color: var(--on-dark-accent);
+  --focus-ring-width: 3px;
+  --focus-ring-offset: 2px;
+
+  /* ---------------------------------------------------------------------
+   * MOTION
+   * ------------------------------------------------------------------- */
+  --ease-out-soft: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --duration-fast: 0.8s;
+  --duration-slow: 0.9s;
+  --duration-draw: 1s;
+
+  /* ---------------------------------------------------------------------
+   * PLACEHOLDER-SPECIFIC — legacy values from the original hand-built
+   * placeholder that do not sit on the scales above. They are kept as
+   * named tokens rather than snapped to the nearest scale step, because
+   * snapping them would change what renders, and SWEB-13 is a refactor.
+   * Expect these to disappear when the placeholder is replaced at cutover.
+   * ------------------------------------------------------------------- */
+  --ph-aura-size: 560px;
+  --ph-aura-blur: 100px;
+  --ph-aura-opacity: 0.3;
+  --ph-aura-offset: 440px;
+  --ph-aura-top: -200px;
+  --ph-aura-bottom: -220px;
+  --ph-logo-size: min(360px, 74vw);
+  --ph-logo-shadow: drop-shadow(0 14px 40px rgba(20, 60, 140, 0.35));
+  --ph-tagline-lift: -0.3rem;
+  --ph-tagline-size: clamp(0.82rem, 1.5vw, 1rem);
+  --ph-tagline-opacity: 0.9;
+  --ph-divider-width: min(230px, 58vw);
+  --ph-divider-height: 2px;
+  --ph-divider-margin: 1.9rem 0 1.6rem;
+  --ph-divider-glow: 0 0 18px rgba(90, 150, 255, 0.4);
+  --ph-status-size: clamp(0.98rem, 1.2vw, 1.08rem);
+  --ph-footer-bottom: 1.4rem;
+  --ph-stage-rise: 18px;
+  --ph-aura-radius: 50%;
+  --ph-delay-divider: 0.55s;
+  --ph-delay-tagline: 0.65s;
+  --ph-delay-status: 0.85s;
+  --ph-delay-footer: 1.2s;
+  --ph-bg-gradient: radial-gradient(
+    1100px 640px at 50% -8%,
+    var(--surface-glow) 0%,
+    var(--surface-raised) 40%,
+    var(--surface-base) 100%
+  );
+}

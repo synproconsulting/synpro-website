@@ -44,6 +44,12 @@ Record here: each collection, its schema, where its source copy lives, and which
 it. The intent is that a content edit never requires reading component code to find out where a
 string is rendered.
 
+> **Pointer (SWEB-12).** The Sprint 3 tickets document asked for the `build.inlineStylesheets`
+> decision to be recorded "in §2". That was a mis-reference — §2 is the content model, and build
+> configuration belongs with the rest of the build in **§4, "Stylesheet emission"**. The sections
+> are deliberately stable and are referenced by number from prompts, so §4 was written rather
+> than the numbering changed. Look there.
+
 ---
 
 ## 3. Component & Page Structure
@@ -66,13 +72,31 @@ default `<slot />` for page content.
 | `title` | `string` | `<title>` text |
 | `description` | `string` | `<meta name="description">` content |
 
-It owns the head (charset, viewport, title, description, Google Fonts preconnects and the Sora
-stylesheet link) and the **global stylesheet**.
+It owns the head: charset, viewport, title, description, canonical link, the icon links, the Open
+Graph and Twitter card meta, and the font preload. It also exposes a named `<slot name="head" />`
+so a page can add its own head content without the layout growing a prop per tag.
 
-**The `<style>` block is `is:global`, and this is load-bearing.** The rules target `html`, `body`,
-`*`, and `@keyframes`. Astro's default scoping rewrites selectors with a hash attribute, which
-would leave the universal reset and the body background applying to nothing. Do not remove
-`is:global` from this block without moving those rules elsewhere first.
+**Styling moved out of this file in Sprint 3 (SWEB-13).** It no longer carries a `<style>` block.
+Instead it imports, in this order — which is the cascade order and matters:
+
+```js
+import '../styles/tokens.css'; // custom properties only, no rules
+import '../styles/fonts.css'; // the single @font-face for self-hosted Sora
+import '../styles/global.css'; // reset, base, focus, placeholder rules
+```
+
+**These are plain `.css` imports, not scoped `<style>` blocks, and that is load-bearing for the
+same reason `is:global` was.** The rules target `html`, `body`, `*`, and `@keyframes`; Astro's
+component scoping rewrites selectors with a hash attribute, which would leave the universal reset
+and the body background applying to nothing. Imported stylesheets are never scoped, so the problem
+is now structural rather than dependent on remembering a directive. Do not move these rules back
+into a component `<style>` block without `is:global`.
+
+`build.inlineStylesheets: 'always'` then inlines the bundled result into the page — see §4.
+
+**No Google Fonts request remains.** The `<link>` to the font CDN and its two preconnects were
+removed; Sora is served from `public/fonts/`. A `rel="preload"` for the one variable font file
+replaces them, keeping it off the critical path without a cross-origin round trip.
 
 ### `src/pages/index.astro`
 
@@ -88,6 +112,17 @@ Two details are deliberate and easy to "fix" wrongly:
   Rules require you to verify a risky change against.
 - **The year script carries `is:inline`.** Without it Astro bundles the script and hoists it into
   `<head>` as a module. `is:inline` keeps it in place and unprocessed, matching the original.
+
+> **Known inconsistency, recorded rather than silently resolved (SWEB-13/14).** `logo.png` is
+> referenced *relatively* from `index.astro`, while the font, icons, and OG image added in Sprint 3
+> are referenced *root-absolutely* (`/fonts/…`, `/favicon.ico`, `/og-image.png`). Both currently
+> work: the site has one route at the apex root, and the `github.io` origin 301-redirects to the
+> apex (verified Sprint 2), so root-absolute resolves correctly there too. They diverge only for a
+> route below the root, which does not exist yet — a relative `logo.png` on `/services/` would look
+> for `/services/logo.png`. The absolute form is the one that scales; `logo.png` was left alone
+> because changing it is not what this sprint was for. **Settle this when the second route lands**,
+> and note that the Hard Rule justifying the relative form rests on verifying against the origin
+> URL, which no longer independently verifies anything.
 
 ---
 
@@ -147,6 +182,48 @@ links** — green and completely inert. The working pattern excludes the loopbac
 Passing that regex as a CLI flag was also mangled by Windows shell quoting, which is the second
 reason it lives in a config file. See `RUNBOOK.md` §8 for the positive and negative tests that
 prove the check is live.
+
+### Stylesheet emission — `build.inlineStylesheets` *(SWEB-12)*
+
+Set explicitly to **`'always'`** in `astro.config.mjs`.
+
+**The problem it solves.** The Astro default is `'auto'`, which inlines a stylesheet only while it
+stays under roughly 4 kB and emits a separate `.css` file above that. Output *structure* therefore
+depended on stylesheet *size*, and the boundary was close enough to trip. In Sprint 2 the same
+commit built two different ways: CI produced a 5102-byte page with the CSS inlined and 2 crawlable
+links, while the Windows working copy produced a 1093-byte page, a separate
+`_astro/index.*.css`, and 3 links — purely because CRLF line endings added 203 bytes and pushed the
+compiled stylesheet from 4013 to 4216 bytes. That divergence is what produced the SWEB-11 defect.
+
+`.gitattributes` (below) removes the line-ending half. This setting removes the other half: emission
+is now decided by configuration, not by whichever side of 4096 bytes the stylesheet happens to land
+on. That mattered immediately, because SWEB-13 grew the stylesheet well past 4 kB — under `'auto'`
+the flip would have happened silently inside the same PR that also rewrote the CSS, leaving no way
+to attribute a diff to either change.
+
+**Why `'always'` and not `'never'`.** `'always'` reproduces what production was already serving,
+which is what allowed SWEB-12 to prove itself inert: local output became byte-identical to the live
+page (5102 bytes, matching SHA-256) with no CSS content change.
+
+**Trade-off, recorded now rather than discovered later.** Inlining costs cross-page caching. With a
+single route that is free. Once a second route exists, the shared token stylesheet is duplicated
+into every page instead of being fetched once and cached, and `'never'` becomes the better choice.
+**Revisit when the second route lands.**
+
+### Line endings — `.gitattributes` *(SWEB-12)*
+
+`* text=auto eol=lf`, plus explicit `binary` for images, fonts, and archives.
+
+The repository has always stored LF and CI has always checked out LF; only the Windows working copy
+differed, under `core.autocrlf=true`. That is normally cosmetic — here it changed build output
+shape, as above. `.gitattributes` is repo-scoped and travels with the project, which a local
+`core.autocrlf` setting does not, so it protects the next machine and the next contributor too.
+
+Applying it required re-checking-out the tracked files, not just `git add --renormalize` —
+renormalising updates the index while leaving the working copy untouched. After re-checkout,
+`BaseLayout.astro` went from 5279 bytes with 203 CRLF pairs to 5076 bytes with none, matching the
+blob exactly. The binary patterns are belt-and-braces: Git's auto-detection normally gets images
+right, but a corrupted logo is an expensive way to discover an edge case.
 
 ### Build reproducibility
 
@@ -365,12 +442,111 @@ concern here is fetching. Do not treat the file as permanent, and do not lift it
 
 ## 7. Design Standards
 
-*Populated when the visual design is established.*
+*Established in Sprint 3 (SWEB-13). Implemented in `src/styles/tokens.css` — that file is the
+executable copy of this section. If the two disagree, the stylesheet is what ships; fix the doc.*
 
-Record here: type scale, colour tokens, spacing scale, breakpoints, logo usage and clear space,
-button and link treatments, and the accessibility floor (contrast ratios, focus states, reduced
-motion). The intent is that a future page looks like it belongs without anyone re-deriving the
-system.
+### Where things live
+
+| File | Contains |
+|---|---|
+| `src/styles/tokens.css` | Every custom property. No rules. |
+| `src/styles/fonts.css` | The single `@font-face` for self-hosted Sora. |
+| `src/styles/global.css` | Reset, base, focus, and the placeholder's rules. Consumes tokens only. |
+
+Imported in that order from `BaseLayout.astro`; the order is the cascade order and matters.
+
+### The two palettes — read before using a colour
+
+The most important rule in this section: **`--brand-*` and `--ui-*` are different sets and must
+not be collapsed into one.**
+
+- **`--brand-*`** are sampled from the logo artwork. They identify the company. Every value was
+  verified to exist as an exact pixel in the alpha-intact source (`SynPro Consulting logo
+  _Transparent.png`), not taken from a flattened copy.
+- **`--ui-*`** are the interface colours the placeholder was designed with — lighter, higher-chroma
+  variants chosen to sit on a near-black surface.
+
+The brand blues and greens are deep enough to be almost invisible on the dark surface; the UI
+colours would be wrong on a business card. Neither set is a substitute for the other.
+
+| Token | Value | Notes |
+|---|---|---|
+| `--brand-blue-deep` | `#011c6b` | Light surfaces only |
+| `--brand-blue-mid` | `#0043ae` | Light surfaces only |
+| `--brand-blue-highlight` | `#4fa1ea` | Dark-safe |
+| `--brand-green-deep` | `#004000` | Light surfaces only |
+| `--brand-green-mid` | `#4e9700` | Dark-safe (5.24:1); fails as body text on white |
+| `--brand-green-highlight` | `#c8ef00` | Primary accent on dark |
+| `--brand-grey` | `#878787` | Dark-safe (5.32:1) |
+
+Surfaces: `--surface-base` `#0a0f1c`, `--surface-raised` `#111a2e`, `--surface-glow` `#16223d`.
+Text: `--text-primary` `#eaf0fb`, `--text-muted` `#8a97ad`.
+
+### Accessibility floor — WCAG 2.2 AA (owner-confirmed)
+
+**This is a rule, not an aspiration.** Every colour pair the tokens expose must meet:
+
+- **4.5:1** for body text
+- **3:1** for large text (18.66px bold / 24px regular and above) and UI components
+- A **visible focus indicator on every interactive element** (2.4.7 Focus Visible; 2.4.11 Focus
+  Appearance). Provided by `:focus-visible` in `global.css` using `--focus-ring-color`
+  (the accent, 14.39:1 on the base surface), 3px wide with 2px offset.
+- `prefers-reduced-motion: reduce` is honoured — all animation is disabled and the divider is
+  pinned to its final width.
+
+**Usability is encoded in the tokens, not left to be rediscovered per page.** Use the
+`--on-dark-*` and `--on-light-*` aliases rather than the raw ramps. Colours that fail on a given
+surface are simply not reachable through them:
+
+| Alias | Resolves to | On | Ratio |
+|---|---|---|---|
+| `--on-dark-text` | `#eaf0fb` | `--surface-base` | 16.72:1 |
+| `--on-dark-accent` | `#c8ef00` | `--surface-base` | 14.39:1 |
+| `--on-dark-link` | `#4fa1ea` | `--surface-base` | 6.94:1 |
+| `--on-dark-text-muted` | `#8a97ad` | `--surface-base` | 6.48:1 |
+| `--on-light-primary` | `#011c6b` | white | 15.22:1 |
+| `--on-light-accent` | `#004000` | white | 12.12:1 |
+| `--on-light-secondary` | `#0043ae` | white | 8.70:1 |
+
+**Deliberately excluded, and why.** On `--surface-base`: `--brand-blue-deep` 1.26:1,
+`--brand-green-deep` 1.58:1, `--brand-blue-mid` 2.20:1 — all fail even the 3:1 large-text floor.
+On white: `--brand-green-highlight` 1.33:1 and `--brand-blue-highlight` 2.76:1 fail. The deep
+brand colours are for light surfaces; the highlights are for dark. They invert.
+
+All ratios above are **computed** with the WCAG relative-luminance formula, not estimated. Sprint
+2's SWEB-11 defect was a number written into a doc that had never been measured — recompute before
+changing any value here.
+
+### Type
+
+**Sora**, self-hosted (see `fonts.css`). Variable font, `wght` axis 400–800, latin subset, one
+`.woff2`. Licensed SIL OFL 1.1; `public/fonts/OFL.txt` ships beside it as clause 2 requires.
+
+Scale: `--text-xs` `0.72rem` · `--text-sm` `0.82rem` · `--text-base` `1rem` · `--text-lg` ·
+`--text-h4` · `--text-h3` · `--text-h2` · `--text-h1`, the upper five fluid via `clamp()`.
+Body copy never goes below `1rem`. Weights 400/500/600/700. Line heights `--leading-tight` 1.15
+through `--leading-relaxed` 1.75; tracking `--tracking-tight` through `--tracking-widest`.
+
+### Space, layout, motion
+
+4px-based scale, `--space-1` `0.25rem` through `--space-10` `8rem`. `--content-max` `68ch` for
+readable line length; `--container-max` `1200px`. Radii `--radius-sm` 2px through `--radius-pill`.
+Breakpoints `--bp-sm` 40rem, `--bp-md` 48rem, `--bp-lg` 64rem, `--bp-xl` 80rem — **note that
+custom properties cannot be used inside `@media` conditions**, so those values are repeated
+literally in media queries and must be kept in step.
+
+### The `--ph-*` tokens are temporary
+
+The placeholder uses values that do not sit on the scales above — `1.9rem 0 1.6rem` margins, a
+560px aura, a `-0.3rem` optical lift. They are preserved as named `--ph-*` tokens rather than
+snapped to the nearest scale step, because snapping them would change what renders and SWEB-13 was
+a refactor with byte-identical output as its proof. **Expect them to disappear when the placeholder
+is replaced at cutover.** Do not build new components on them.
+
+### Still to establish
+
+Button and link treatments, form-control styling, and logo clear-space rules. Not invented here —
+they arrive with the first page that needs them.
 
 > The Fracttal PRM design standards (`fp-card`, `fp-table`, its status-badge palette) are an
 > internal application's system and deliberately **not** inherited here.

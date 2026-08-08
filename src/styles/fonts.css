@@ -1,0 +1,44 @@
+/**
+ * Sora — self-hosted  (SWEB-13)
+ *
+ * Previously loaded from Google's font CDN, which disclosed every visitor's IP
+ * address to a third party. For a site advising European corporates that is an
+ * avoidable GDPR exposure, and it would otherwise have had to be dealt with in the
+ * privacy notice that is still on the backlog. Self-hosting also removes a
+ * render-blocking cross-origin request and one more source of environment variance.
+ *
+ * NOTE ON WORDING: the CDN hostnames are deliberately NOT written out anywhere in
+ * this file. SWEB-13 AC3 is verified by grepping dist/ for them, and because this
+ * stylesheet is inlined into every page, naming them in a comment would make that
+ * check report a hit forever. A verification grep that always fires is worthless.
+ *
+ * ONE FILE, NOT THREE. Sora is a variable font: Google's own stylesheet served the
+ * identical .woff2 for weights 400, 500 and 600 and varied only the `font-weight`
+ * descriptor. The file below is that exact asset (latin subset, sha256
+ * 811E1196...4A93), so rendering is unchanged rather than merely similar. Its wght
+ * axis spans 400-800, which is declared as a range here — the browser interpolates,
+ * and no separate file is needed for a future bold heading.
+ *
+ * LICENCE: SIL Open Font License 1.1, confirmed by reading public/fonts/OFL.txt
+ * rather than from memory. Clause 2 permits redistribution bundled with software
+ * provided the copyright notice and licence travel with it — hence OFL.txt sits
+ * beside the font and is published as part of the site.
+ *
+ * The unicode-range is copied from Google's latin subset declaration. Every glyph
+ * the site renders was verified present in the file (223 codepoints covered).
+ */
+
+@font-face {
+  font-family: 'Sora';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  /* Root-absolute: the stylesheet is inlined into each page, so a relative URL
+     would resolve against the page's own depth and break for any route below
+     the root. The apex serves from /, and the github.io origin 301-redirects
+     to it (verified Sprint 2), so / is the correct base in both cases. */
+  src: url('/fonts/sora-latin-var.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}

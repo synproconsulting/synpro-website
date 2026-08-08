@@ -112,22 +112,24 @@ $live.Trim() -eq $dist.Trim()      # True  => the Actions artifact is serving
 
 If that is `False`, investigate — but read the warning below before concluding the deploy failed.
 
-> **On a Windows checkout this comparison returns a false negative.** *(Learned SWEB-11, hit during
-> the Sprint 2 closeout and briefly read as a failed deploy.)* `core.autocrlf=true` makes the local
-> build emit the stylesheet as a separate file while CI inlines it, so local `dist/index.html` is
-> **1093 bytes** and the live page is **5102** — a legitimate difference between two correct builds,
-> not evidence of a stale deploy. See §8 for the mechanism.
+> **The Windows false negative is FIXED as of Sprint 3 (SWEB-12). This comparison is trustworthy
+> again.** `.gitattributes` normalises the working copy to LF and
+> `build.inlineStylesheets: 'always'` pins emission, so a local build now produces `dist/index.html`
+> byte-identical to the published artifact. Verified in SWEB-12: local output matched the live page
+> exactly at 5102 bytes, SHA-256 `C29ACF6C…0BA63`.
 >
-> Two ways to get a trustworthy answer instead:
+> **The incident, retained as history.** *(SWEB-11, hit during the Sprint 2 closeout and briefly
+> read as a failed deploy.)* Before the fix, `core.autocrlf=true` made the local build emit the
+> stylesheet as a separate file while CI inlined it — local `dist/index.html` was **1093 bytes**
+> against a live **5102**. Two correct builds that legitimately differed. See §8 for the mechanism.
+> If you ever see this comparison fail again, suspect a build-shape divergence before concluding
+> the deploy is stale.
 >
-> 1. **Compare a fetched-only asset.** Request a file that exists solely in the new artifact — after
->    Sprint 2, `https://synproconsulting.co/robots.txt` returning 200 proves the current artifact is
->    live, with no dependence on build shape.
-> 2. **Normalise before comparing.** Convert `src/layouts/BaseLayout.astro` to LF, rebuild, and then
->    compare — the output matches CI byte for byte. Restore the file afterwards
->    (`git checkout -- src/layouts/BaseLayout.astro`).
+> **The independent check is still worth knowing**, because it does not depend on build shape at
+> all: request a file that exists only in the new artifact. `https://synproconsulting.co/robots.txt`
+> returning 200 proved the artifact was live in Sprint 2 without any byte comparison.
 >
-> The root-`index.html` half of this check is now historical: those files were deleted in Sprint 2
+> The root-`index.html` half of this check is historical: those files were deleted in Sprint 2
 > (SWEB-9), so there is no branch-root copy left to compare against.
 
 Also useful: `GET /repos/{owner}/{repo}/deployments?environment=github-pages` shows whether an
@@ -375,7 +377,7 @@ rate-limiter failure in a new costume.
 **Negative-test every control you add.** For the link checker specifically:
 
 ```cmd
-:: POSITIVE — expect "scanned 2 links" and exit code 0
+:: POSITIVE — expect "scanned 5 links" and exit code 0
 npm run build
 npm run links
 
@@ -386,41 +388,51 @@ The negative test injects `<a href="does-not-exist.html">` into a copy of `dist/
 confirms linkinator reports `[404]` and exits 1. If the positive test ever reports a scanned-link
 count of 0, or the negative test exits 0, the check is inert — fix it before trusting a green run.
 
-Note the count: **2** internal links — the crawl root (`dist`, i.e. the page itself) and
-`dist/logo.png`. The stylesheet is **inlined** into the page by Astro, so it is not a separate
-crawlable link. External URLs are skipped by `.linkinatorrc.json` on purpose, so a Google Fonts
-outage cannot fail a blocking check.
+Note the count: **5** internal links as of Sprint 3 — the crawl root (`dist`, i.e. the page
+itself), `dist/logo.png`, `dist/fonts/sora-latin-var.woff2`, `dist/favicon.ico`, and
+`dist/apple-touch-icon.png`. The stylesheet is **inlined** into the page, so it is not a separate
+crawlable link. External URLs are skipped by `.linkinatorrc.json` on purpose, so a font-CDN outage
+cannot fail a blocking check.
 
-`robots.txt` does not affect this count — nothing links to it, so it is never crawled.
+`robots.txt` and `og-image.png` do not affect this count — nothing links to `robots.txt`, and
+`og:image` is a `<meta>` property rather than a crawlable link.
 
-> **The authority for this number is the CI `links` job log, not a local run.** Verified in run
-> `31219473015` (PR #5 merging to `main`): *"Successfully scanned 2 links"*, listing `dist` and
-> `dist/logo.png` only.
+> **This count changes whenever a page, image, font, or icon is added. Re-measure; do not assume.**
+> It was 2 through Sprint 2 and became 5 in Sprint 3 when the self-hosted font preload and the two
+> icons landed. The authority is the CI `links` job log, not a local run.
 
-#### Why a local run on Windows reports 3, not 2 *(learned SWEB-11)*
+#### Local and CI builds now agree *(SWEB-12 — supersedes the SWEB-11 guidance)*
 
-**A local Windows build is not shaped like the CI build, and this is not a defect in either.**
+**This divergence is fixed. The text below is retained as history because the incident it caused
+is instructive, not because the condition is live.**
 
-`core.autocrlf=true` gives the Windows checkout CRLF line endings. `src/layouts/BaseLayout.astro`
-carries 203 CRLF pairs, so its `<style>` block is 203 bytes larger on disk locally than the LF
-bytes stored in the repo. That pushes the generated stylesheet from **4013 bytes to 4216** — across
-Astro's **4096-byte** `inlineStylesheets: 'auto'` threshold. The result:
+Through Sprint 2, `core.autocrlf=true` gave the Windows checkout CRLF line endings.
+`src/layouts/BaseLayout.astro` carried 203 CRLF pairs, so its style block was 203 bytes larger on
+disk locally than the LF bytes in the repo. That pushed the generated stylesheet from **4013 to
+4216 bytes** — across Astro's **4096-byte** `inlineStylesheets: 'auto'` threshold:
 
-| | Stylesheet | `dist/index.html` | Links scanned |
+| | Stylesheet | `dist/index.html` | Links |
 |---|---|---|---|
-| Local (CRLF checkout) | emitted as `dist/_astro/index.*.css` | 1093 bytes | **3** |
-| CI and production (LF) | inlined into the page | 5102 bytes | **2** |
+| Local, CRLF checkout (pre-SWEB-12) | separate `_astro/index.*.css` | 1093 bytes | 3 |
+| CI and production, LF | inlined | 5102 bytes | 2 |
 
-Confirmed by converting `BaseLayout.astro` to LF locally and rebuilding: the output became 5102
-bytes with the stylesheet inlined, and linkinator scanned 2.
+**Sprint 3 removed both halves of the cause.** `.gitattributes` (`* text=auto eol=lf`) normalises
+the working copy, and `build.inlineStylesheets: 'always'` makes emission a configuration decision
+rather than a side effect of file size. Verified at the time: a local `npm run build` produced
+`dist/index.html` byte-identical to the live page — 5102 bytes, SHA-256 `C29ACF6C…0BA63` — and
+linkinator scanned the same count locally as in CI.
 
-**Do not "fix" this.** Do not change `core.autocrlf`, add a `.gitattributes`, normalise the repo's
-line endings, or tune the inlining threshold to make local match CI. The repo stores LF correctly
-and the production output is correct. Only be aware that the local build differs in shape, and
-treat CI as the authority for any byte count or link count.
+> **Note for anyone reading the Sprint 2 text.** §8 previously said *"Do not fix this — do not
+> change `core.autocrlf`, add a `.gitattributes`…"*. That judgement has been **reversed by owner
+> decision in SWEB-12**, and the reversal is sound: the original objection was that production
+> output was already correct and should not be disturbed to fix a local-only cosmetic difference.
+> `.gitattributes` does not disturb it — CI was already LF, so CI output is unchanged. Only the
+> working copy moved, which is precisely what removes the trap. The standing advice that **CI is
+> the authority for any byte or link count** survives unchanged and is still correct.
 
-This also has a direct consequence for §3 — see the warning there before using the live-HTML-versus-
-`dist/` comparison on a Windows checkout.
+Applying `.gitattributes` needs a re-checkout, not just `git add --renormalize .` — renormalising
+updates the index and leaves the working copy alone. Delete the tracked files and
+`git checkout -- .` to force the filter to run.
 
 ### Config files read by non-Windows tools *(learned Sprint 1)*
 
@@ -512,13 +524,23 @@ Two rules follow from SWEB-7, where three inherited claims turned out to be wron
 | Pages `build_type` lies about the active deploy path | Reported `legacy` while the Actions artifact was serving | Compare live HTML against `dist/` (§3) |
 | ~~A red `pages build and deployment` run on every `main` push~~ | **Resolved 2026-08-07 (Sprint 2).** GitHub's stock Jekyll builder, failing since before Sprint 1 and never caused by sprint work; not in our `ci.yml` | Retired by the Pages source flip. Observed: `17f2433`, `4abf377`, `19fb7b8` each triggered one; `d41545e` triggered none |
 | The repo root is not a safe parking spot for source material | The pre-flight `git clean -fd --exclude=Documentation/` destroys every untracked root file at the start of every session | Keep source material outside the working directory (§6) |
-| A Windows build is a different shape from the CI build | `core.autocrlf=true` adds 203 bytes to `BaseLayout.astro`, pushing the stylesheet over Astro's 4096-byte inlining threshold: local emits a separate CSS file (3 links, 1093-byte page), CI inlines it (2 links, 5102-byte page) | Treat CI as the authority for any byte or link count. Do not change `core.autocrlf` or the threshold (§8) |
-| §3's live-HTML-vs-`dist/` check false-negatives on Windows | Same cause — two correct builds that legitimately differ | Fetch `/robots.txt` to prove the artifact is live, or normalise to LF before comparing (§3) |
+| ~~A Windows build is a different shape from the CI build~~ | **Resolved 2026-08-07 (SWEB-12).** `core.autocrlf=true` added 203 bytes to `BaseLayout.astro`, pushing the stylesheet over Astro's 4096-byte inlining threshold: local emitted a separate CSS file (3 links, 1093-byte page), CI inlined it (2 links, 5102-byte page) | Fixed by `.gitattributes` (`text=auto eol=lf`) + `inlineStylesheets: 'always'`. Local now byte-matches CI. CI remains the authority for any count (§8) |
+| ~~§3's live-HTML-vs-`dist/` check false-negatives on Windows~~ | **Resolved 2026-08-07 (SWEB-12).** Same cause | Comparison is trustworthy again (§3). The build-shape-independent check — fetch an asset only the new artifact has — is still the better tool when in doubt |
+| A `.gitattributes` change needs a re-checkout to take effect | `git add --renormalize .` updates the index but leaves the working copy on its old line endings, so the build still sees CRLF | Delete tracked files and `git checkout -- .` to force the filter (§8) |
+| The link count is not a constant | It was 2 through Sprint 2 and 5 from Sprint 3 — fonts and icons are crawlable | Re-measure after adding any page, image, font, or icon; never carry the old number forward (§8) |
 | DNS guidance often says "remove existing records" | Following it takes down company mail | Additive changes only (§5) |
 
 ---
 
-*Last updated: 2026-08-07 — SWEB-11 (PR #6): reverted §8's link count to **2** — PR #5 changed it to
+*Last updated: 2026-08-07 — Sprint 3 (SWEB-12 … SWEB-14, PR #7): recorded that the Windows/CI
+build-shape divergence is **fixed** — §3's false-negative warning and the two §10 rows are now
+history rather than live conditions, and §8's "do not add a `.gitattributes`" guidance is
+explicitly reversed with the reasoning. §8's expected link count corrected from **2 to 5** (the
+self-hosted font preload and two icons are crawlable), with a standing note that the number moves
+whenever an asset is added. Added the re-checkout gotcha: `git add --renormalize` alone does not
+change the working copy.*
+
+*Previously: 2026-08-07 — SWEB-11 (PR #6): reverted §8's link count to **2** — PR #5 changed it to
 3 from a local Windows measurement, and CI is the authority. Recorded the CRLF/inlining-threshold
 mechanism behind the local-vs-CI divergence in §8, warned in §3 that the live-HTML-vs-`dist/`
 comparison false-negatives on a Windows checkout, and added two §10 rows.*
