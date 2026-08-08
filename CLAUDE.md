@@ -432,6 +432,14 @@ stale, the auto-merger merges on nothing.**
 >
 > Jobs not yet present: worker tests (no Worker) and the accessibility/performance audit.
 
+> **One check on every PR does not come from `ci.yml` at all** *(SWEB-18)*. **SonarCloud Code
+> Analysis** is posted by the org-level GitHub App `sonarqubecloud`. There is no sonar config file
+> in this repo and no reference to it under `.github/` — it is inherited from the organisation, as
+> on Fracttal PRM. **It is not in the `auto-merge` `needs:` array, so it does not gate the merge**;
+> it is advisory. Observed `success` on PR #8. Per AD-6's consequence note, advisory means it can
+> also fail unnoticed — check it at sprint closeout rather than assuming it is green. Do not add it
+> to the blocking list.
+
 > **Porting note:** the rule-based auto-merger job is carried over from
 > `synproconsulting/Fracttal-PRM` `.github/workflows/ci.yml`. Read that file before writing this
 > one; adapt the blocking check names to the jobs above. Do not write a new auto-merger from
