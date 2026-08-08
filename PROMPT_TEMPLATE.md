@@ -169,8 +169,19 @@ A structured template Claude Code fills in after the PR merges. Minimum fields:
 - Files changed, and what changed in each
 - Docs updated — confirm each of the four
 - Post-merge state
-- **Live-site verification:** confirm `https://synproconsulting.co` loads correctly in a fresh
-  window after the Pages deploy completes. This project has no staging; a merge is a publish.
+- **Live-site verification — all four steps (AD-11, `RUNBOOK.md` §3).** This project has no
+  staging; a merge is a publish, so this is detection-and-rollback, not prevention:
+  1. the `deploy` **job** completed for the merge commit, quoted by run ID — not the run's overall
+     status, which stays green even when `deploy` fails (`continue-on-error`, AD-6);
+  2. the live page is byte-identical to the CI artifact for that run;
+  3. `https://synproconsulting.co` renders correctly in a fresh/private window, and `/CNAME` still
+     returns `synproconsulting.co`;
+  4. `git revert` named as the rollback path if any step fails.
+
+> **Never prescribe "verify on the `github.io` origin URL first."** It cannot isolate anything —
+> with a custom domain set it 301-redirects to the apex and serves the same deployment. That
+> instruction was removed from every canonical doc in Sprint 4 (SWEB-15 / AD-11). Do not
+> reintroduce it into a generated prompt.
 
 ---
 

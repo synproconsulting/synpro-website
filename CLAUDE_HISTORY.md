@@ -244,6 +244,12 @@ directive, so the site is closed to crawlers until the cutover (AD-10). And the 
 `index.html`, `logo.png`, and `CNAME` are gone — the custom domain and HTTPS survived their
 removal, verified on the `github.io` origin URL first and then on the apex.
 
+> *Annotated in Sprint 4 (SWEB-15), record left intact:* that verification order was followed as
+> written but proved nothing extra. The `github.io` origin 301-redirects to the apex, so both
+> checks fetched the same bytes from the same deployment. The conclusion above still holds — the
+> domain and HTTPS did survive — but it rests on the apex check alone. The rule that prescribed
+> this was withdrawn under **AD-11**; do not copy the technique.
+
 ### What landed
 
 - **SWEB-8** — `public/robots.txt` added, disallowing all user agents from all paths. It sits in
@@ -489,4 +495,63 @@ decisions, because either can be reversed without changing the shape of the syst
 
 ---
 
-*Next entry: Sprint 4.*
+## Sprint 4 — Deferred Technical Items  ·  2026-08-08
+
+**PRs merged:** #8
+**Fix version / native sprint:** 11101 / 1074
+**Jira keys:** SWEB-15 … SWEB-17
+**Blocking CI checks at close:** `build`, `format`, `links`
+**Live site state at close:** unchanged. The placeholder renders pixel-identically to the Sprint 3
+baseline at 1920×1080, 1280×800, 768×1024 and 375×812 — all four screenshot SHA-256 values equal.
+`dist/index.html` fell from 18,705 to 8,805 bytes because CSS minification was enabled; no pixel
+moved.
+
+### What landed
+- **SWEB-15** — the origin-URL Hard Rule replaced with a verification that functions: `deploy` job
+  success by run ID, live page byte-compared against the CI artifact, apex in a fresh window,
+  `git revert` as rollback. Recorded as **AD-11**. `CLAUDE.md`, `RUNBOOK.md` §3, `PROMPT_TEMPLATE.md`
+  and `PROJECT_CONTEXT.md` §3 all updated; five occurrences found by grep, five dispositioned.
+- **SWEB-16** — `cssMinify` changed from `false` to `'esbuild'`, with a `build`-job guard asserting
+  the `-webkit-background-clip` / `-webkit-text-fill-color` pairing in `dist/`. Inlined CSS
+  16,017 B → 5,895 B (−63.2 %).
+- **SWEB-17** — `index.astro`'s `logo.png` changed to `/logo.png`, making every asset reference
+  root-absolute. The convention is now stated as a rule in `PROJECT_CONTEXT.md` §3.
+
+### ADs recorded
+- **AD-11 · Deploy safety is detection-and-rollback, not origin-URL prevention**
+
+### Lessons
+1. **A control can be non-functional from the day it is written, not merely decayed.** The
+   origin-URL rule never worked: with a custom domain set, `synproconsulting.github.io/synpro-website/`
+   has always 301-redirected to the apex (confirmed this sprint — `301`,
+   `Location: https://synproconsulting.co/`). It read like a staging gate and was one line of
+   prose. **Before trusting an inherited safety step, execute it once and check it observes
+   something the unsafe path would not.**
+2. **The prescribed test was structurally blind to the defect it was meant to catch.** SWEB-16's
+   ticket called a screenshot "the only test that matters". But Chrome supports *unprefixed*
+   `background-clip: text`, so the broken Lightning CSS build screenshots **byte-identical** to a
+   good one at all four viewports. Following the instruction literally would have declared the
+   minifier safe and shipped invisible text to Safari. The defect was only demonstrable by
+   simulating an affected engine — deleting the unprefixed declaration from the built page, which
+   is exactly what such an engine does with a property it does not recognise — and re-rendering.
+   **When a test passes, confirm the test could have failed.**
+3. **A binary acceptance criterion can hide the best outcome.** The ticket offered two branches:
+   regression reproduces → keep `false`; does not reproduce → enable and guard. Both assumed one
+   minifier. Lightning CSS 1.33.0 still strips the prefix, but esbuild does not — so minification
+   was available all along at 63.2 % off the stylesheet with rendering proven identical. Neither
+   branch would have found it. **Test the axis the criterion holds fixed.**
+4. **`cssMinify: true` is not a neutral "on".** It selects the framework's default minifier, which
+   is Lightning CSS. The value is now pinned to `'esbuild'` explicitly and the reason is recorded
+   at the config site, because `true` looks like the obvious tidy-up to a future reader.
+5. **One dead rule was propping up an unrelated inconsistency.** `logo.png` was relative because
+   `/logo.png` would supposedly 404 on the origin URL — a justification that depended entirely on
+   the rule SWEB-15 removed. Fixing the rule made the path fix trivially correct. **When a rule is
+   withdrawn, grep for what was justified by it.**
+6. **The guard was negative-tested before being trusted.** It passes on the shipped build and fails
+   on a real `cssMinify: 'lightningcss'` build. This project has already shipped one green-and-inert
+   check (the link checker that scanned zero links, Sprint 1), so a new assertion is not credible
+   until it has been seen to fail.
+
+---
+
+*Next entry: Sprint 5.*

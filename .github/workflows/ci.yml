@@ -59,6 +59,27 @@ jobs:
           fi
           echo "dist/CNAME verified: ${actual}"
 
+      # SWEB-16. The gradient "coming soon" needs `-webkit-background-clip: text` on
+      # engines that do not support the unprefixed property. Lightning CSS 1.33.0 —
+      # which is what `cssMinify: true` selects by default — strips that prefix while
+      # keeping `-webkit-text-fill-color: transparent`, and the text renders invisible.
+      #
+      # Chrome cannot catch this: it supports the unprefixed property, so a
+      # screenshot-based check passes while the site is broken elsewhere. Hence a
+      # source assertion. The failing shape is specifically the ORPHAN — text-fill-color
+      # present with no background-clip prefix to pair with it.
+      - name: Assert the -webkit gradient-text pairing survived the build (SWEB-16)
+        run: |
+          if grep -q -- '-webkit-text-fill-color' dist/index.html; then
+            if ! grep -q -- '-webkit-background-clip' dist/index.html; then
+              echo "::error::dist/index.html has -webkit-text-fill-color with no -webkit-background-clip. The gradient text will be invisible on engines without unprefixed background-clip. A CSS minifier has stripped the prefix — see cssMinify in astro.config.mjs (SWEB-16)."
+              exit 1
+            fi
+            echo "gradient-text pairing verified: -webkit-background-clip present alongside -webkit-text-fill-color"
+          else
+            echo "no -webkit-text-fill-color in output; nothing to pair. Check skipped."
+          fi
+
       - uses: actions/upload-artifact@v7
         with:
           name: dist

@@ -91,10 +91,50 @@ Almost always a missing `CNAME` in the build artifact. Check the published artif
 root) contains `CNAME` with the single line `synproconsulting.co`. Restore it to the static
 passthrough directory (`public/CNAME`) and redeploy. See `CLAUDE.md` Hard Rules and AD-9.
 
-### Verifying against the origin URL first
+### Verifying a risky change after merge *(replaces the origin-URL check — AD-11)*
 
-For any change that could take the site down, verify on
-`https://synproconsulting.github.io/synpro-website/` before letting the custom domain follow.
+For any change that could take the site down (build config, DNS-adjacent files, the cutover), run
+all four steps. This is detection-and-rollback, not prevention: the change is already live.
+
+**1 — Confirm the `deploy` job itself completed.** Not the run; the job. `deploy` is
+`continue-on-error: true`, so a failed deploy still leaves a green run.
+
+```powershell
+$h  = @{ Authorization = "Bearer $env:PAT_TOKEN" }
+$repo = 'https://api.github.com/repos/synproconsulting/synpro-website'
+$sha  = git rev-parse origin/main
+$run  = (Invoke-RestMethod -Headers $h "$repo/actions/runs?head_sha=$sha").workflow_runs |
+          Where-Object name -eq 'CI' | Select-Object -First 1
+$run.id
+(Invoke-RestMethod -Headers $h "$repo/actions/runs/$($run.id)/jobs").jobs |
+  Select-Object name, status, conclusion      # deploy must be completed / success
+```
+
+**2 — Byte-compare the live page against what CI built.** A local build of the merge commit is
+byte-identical to the artifact (SWEB-12), so it is a valid stand-in.
+
+```powershell
+$live = (Invoke-WebRequest -UseBasicParsing 'https://synproconsulting.co/').Content
+$dist = [IO.File]::ReadAllText('dist\index.html')
+$live.Trim() -eq $dist.Trim()      # True => the deploy published what CI tested
+```
+
+**3 — Load the apex in a fresh/private window** and confirm it renders. Cache will otherwise show
+the previous build and give a false pass. Confirm HTTPS is still enforced and `/CNAME` still returns
+`synproconsulting.co`.
+
+**4 — On any failure, roll back. Do not forward-fix production.**
+
+```cmd
+git revert --no-edit <merge-commit-sha>
+git push origin main
+```
+
+> **Why not verify on `synproconsulting.github.io/synpro-website/` first?** Because it cannot
+> isolate anything, and never could. With a custom domain set that URL **301-redirects to the
+> apex** — verified 2026-08-08, `Location: https://synproconsulting.co/`. It is the same deployment
+> and the same bytes. The instruction stood in the Hard Rules until Sprint 4 and was removed as a
+> control that looked like a staging gate and was not (AD-11). Do not reintroduce it.
 
 ### Determining which deploy path is actually serving *(learned Sprint 1 / SWEB-6)*
 
@@ -512,13 +552,15 @@ Two rules follow from SWEB-7, where three inherited claims turned out to be wron
 
 | Issue | Detail | Workaround |
 |---|---|---|
-| No staging environment | `main` merges publish to the live public domain within about a minute | Verify on the `github.io` origin URL before the custom domain follows |
+| No staging environment | `main` merges publish to the live public domain within about a minute | Detect and roll back: the four-step post-merge check (§3, AD-11). The `github.io` origin cannot serve as staging — it 301s to the apex |
 | `CNAME` lost on build | Under an Actions deploy, the artifact is the build output, not the repo root | Keep `CNAME` in `public/` so it copies into every build (AD-9) |
 | CDN/browser cache masks a deploy | The old build is served from cache after a successful deploy | Verify in a fresh/private window |
 | Credentials must never be pasted in chat | Applies to the GitHub PAT, Resend key, and any provider token | Enter them directly in `.env` or the provider's secret store |
 | Unit tests cannot prove a runtime control works | Rate limiting and CORS depend on the real edge request path | Verify against the live endpoint (§4) |
 | A CI check can be green while inspecting nothing | The link checker scanned 0 links and passed | Negative-test every control (§8) |
-| A CSS minifier can drop a vendor prefix | `-webkit-background-clip` stripped while `-webkit-text-fill-color: transparent` was kept → invisible text | `cssMinify: false`; diff rendered output, not source |
+| A CSS minifier can drop a vendor prefix | Lightning CSS 1.33.0 strips `-webkit-background-clip` while keeping `-webkit-text-fill-color: transparent` → invisible text. Still reproduces as of 2026-08-08 | `cssMinify: 'esbuild'`, never `true`; the `build` job asserts the pairing in `dist/` (SWEB-16) |
+| Chrome cannot detect a missing `-webkit-` prefix | It supports unprefixed `background-clip: text`, so a broken build screenshots byte-identical to a good one | Assert the source pairing too; to see the defect, delete the unprefixed declaration from `dist/` and re-render (§3, SWEB-16) |
+| A relative asset path breaks on nested routes | `logo.png` on `/services/` requests `/services/logo.png` | Root-absolute for every `public/` asset (SWEB-17, `PROJECT_CONTEXT.md` §3) |
 | `Out-File -Encoding utf8` writes a BOM | Breaks JSON config parsing in cross-platform tools | Use `[IO.File]::WriteAllText()` (§8) |
 | A global Jira field context ≠ the field being on a screen | `GET /field` lists it; ticket creation silently drops it | Verify via `createmeta` (§7) |
 | Pages `build_type` lies about the active deploy path | Reported `legacy` while the Actions artifact was serving | Compare live HTML against `dist/` (§3) |
@@ -532,7 +574,16 @@ Two rules follow from SWEB-7, where three inherited claims turned out to be wron
 
 ---
 
-*Last updated: 2026-08-07 — Sprint 3 (SWEB-12 … SWEB-14, PR #7): recorded that the Windows/CI
+*Last updated: 2026-08-08 — Sprint 4 (SWEB-15 … SWEB-17, PR #8): §3's "verify against the origin
+URL first" was **removed and replaced** with a four-step post-merge verification — deploy job
+completed by run ID, live page byte-compared against the CI artifact, apex in a fresh window,
+`git revert` as rollback (AD-11). The origin URL 301-redirects to the apex (verified 2026-08-08),
+so the old check isolated nothing. **§3's deploy-path determination technique was retained in
+full** — it is correct and unrelated to that defect. Three §10 rows added or rewritten: the CSS
+minifier row now names Lightning CSS 1.33.0 and `cssMinify: 'esbuild'`, a new row records that
+Chrome cannot detect a missing `-webkit-` prefix, and a new row records the relative-path hazard.*
+
+*Previously: 2026-08-07 — Sprint 3 (SWEB-12 … SWEB-14, PR #7): recorded that the Windows/CI
 build-shape divergence is **fixed** — §3's false-negative warning and the two §10 rows are now
 history rather than live conditions, and §8's "do not add a `.gitattributes`" guidance is
 explicitly reversed with the reasoning. §8's expected link count corrected from **2 to 5** (the

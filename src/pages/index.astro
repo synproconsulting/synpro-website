@@ -9,7 +9,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   <div class="aura aura--blue"></div>
   <div class="aura aura--green"></div>
   <main class="stage">
-    <div class="logo-wrap"><img src="logo.png" alt="SynPro Consulting" /></div>
+    <!--
+      Root-absolute, like every other asset reference (SWEB-17). A relative
+      "logo.png" resolves against the current route, so it would look for
+      /services/logo.png the moment a nested route exists.
+    -->
+    <div class="logo-wrap"><img src="/logo.png" alt="SynPro Consulting" /></div>
     <p class="tagline">Facilities &amp; Workplace Advisory</p>
     <div class="divider" role="presentation"></div>
     <p class="status">Website <span class="soon">coming soon</span></p>
