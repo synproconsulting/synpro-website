@@ -104,25 +104,35 @@ Renders through `BaseLayout` and reproduces the pre-Sprint-1 placeholder exactly
 gradient blobs, `main.stage` with the logo, tagline, divider, and status line, and the footer with
 the JS-populated copyright year.
 
-Two details are deliberate and easy to "fix" wrongly:
+One detail is deliberate and easy to "fix" wrongly:
 
-- **`<img src="logo.png">` is relative, not root-absolute.** A relative reference resolves
-  correctly both on `synproconsulting.co/` and on `synproconsulting.github.io/synpro-website/`.
-  Rewriting it to `/logo.png` would 404 on the origin URL — which is precisely the URL the Hard
-  Rules require you to verify a risky change against.
 - **The year script carries `is:inline`.** Without it Astro bundles the script and hoists it into
   `<head>` as a module. `is:inline` keeps it in place and unprocessed, matching the original.
 
-> **Known inconsistency, recorded rather than silently resolved (SWEB-13/14).** `logo.png` is
-> referenced *relatively* from `index.astro`, while the font, icons, and OG image added in Sprint 3
-> are referenced *root-absolutely* (`/fonts/…`, `/favicon.ico`, `/og-image.png`). Both currently
-> work: the site has one route at the apex root, and the `github.io` origin 301-redirects to the
-> apex (verified Sprint 2), so root-absolute resolves correctly there too. They diverge only for a
-> route below the root, which does not exist yet — a relative `logo.png` on `/services/` would look
-> for `/services/logo.png`. The absolute form is the one that scales; `logo.png` was left alone
-> because changing it is not what this sprint was for. **Settle this when the second route lands**,
-> and note that the Hard Rule justifying the relative form rests on verifying against the origin
-> URL, which no longer independently verifies anything.
+### Asset path convention — root-absolute, always *(settled SWEB-17)*
+
+**Every reference to a file in `public/` starts with `/`.** This is the rule for every page built
+from here on, not a preference:
+
+```html
+<img src="/logo.png" />           <!-- correct -->
+<img src="logo.png" />            <!-- wrong: resolves against the current route -->
+```
+
+A relative reference resolves against the *current route*, so `logo.png` on a `/services/` page
+requests `/services/logo.png` and 404s. The site is served at the apex, so the leading `/` always
+points at the `public/` root. Every reference now follows it — `/logo.png`, `/favicon.ico`,
+`/apple-touch-icon.png`, `/fonts/sora-latin-var.woff2` in both the preload and the `@font-face`.
+
+`canonical` and `og:image` are the one deliberate exception and are not relative-vs-absolute at
+all: they are built as **fully-qualified URLs** with `new URL(..., Astro.site)`, because Open Graph
+scrapers do not resolve site-relative paths.
+
+> **History, so the reversal is not re-litigated.** Until SWEB-17 `logo.png` alone was relative,
+> justified on the grounds that `/logo.png` would 404 on the `github.io` origin URL that the Hard
+> Rules told you to verify against. That justification was void: the origin **301-redirects to the
+> apex**, so root-absolute resolves there too, and the Hard Rule itself was replaced in the same
+> sprint (**AD-11**). One dead rule was propping up one inconsistent reference.
 
 ---
 
@@ -225,13 +235,49 @@ renormalising updates the index while leaving the working copy untouched. After 
 blob exactly. The binary patterns are belt-and-braces: Git's auto-detection normally gets images
 right, but a corrupted logo is an expensive way to discover an edge case.
 
-### Build reproducibility
+### CSS minification — `vite.build.cssMinify` *(decided SWEB-16)*
 
-`astro.config.mjs` sets `vite.build.cssMinify: false`. The default minifier strips
-`-webkit-background-clip: text` while keeping `-webkit-text-fill-color: transparent`, making the
-gradient "coming soon" text invisible on engines without unprefixed `background-clip`. The
-stylesheet is ~2.5 kB; the saving is not worth a visible regression. Re-enabling minification
-requires a browserslist-driven Lightning CSS target **and** a visual re-check of `.status .soon`.
+Set to **`'esbuild'`**. Not `true`, and never `'lightningcss'`.
+
+**The trap.** `true` is not a neutral "on": it selects Astro 7.2.0's default CSS minifier, which is
+Lightning CSS. Lightning CSS **1.33.0** drops `-webkit-background-clip: text` while keeping
+`-webkit-text-fill-color: transparent`. On an engine that still needs the prefix for
+`background-clip: text`, nothing clips the gradient but the fill stays transparent, so
+`.status .soon` renders as a solid gradient bar with the words gone. This is the Sprint 1 defect
+that produced `cssMinify: false`, and Sprint 4 **re-ran the test rather than trusting the note** —
+it still reproduces.
+
+**Measured on the placeholder, 2026-08-08** (inlined CSS, `<style>` contents only):
+
+| `cssMinify` | Inlined CSS | Page | `-webkit-background-clip` | Renders |
+|---|---|---|---|---|
+| `false` (previous) | 16,017 B | 18,705 B | kept | correct |
+| **`'esbuild'` (current)** | **5,895 B** | **8,805 B** | **kept** | **correct** |
+| `true` / `'lightningcss'` | 5,724 B | 8,412 B | **stripped** | **text invisible** |
+
+Lightning CSS saves 171 bytes more than esbuild and costs the text. esbuild takes 63.2 % off the
+stylesheet with the pairing intact.
+
+**Why the visual test alone could not decide this.** Chrome supports *unprefixed*
+`background-clip: text`, so the Lightning CSS build screenshots **byte-identical** to the baseline
+in Chrome — all four viewports, matching SHA-256. A screenshot-only check would have cleared a
+broken build. The defect was demonstrated by simulating an affected engine: remove only the
+unprefixed declaration from the built page — exactly what such an engine does with a property it
+does not recognise — and re-screenshot. Under that engine the Lightning CSS build loses the words
+while the esbuild and unminified builds are unchanged from baseline. **Source inspection and
+render inspection are both required here; neither alone is sufficient.**
+
+**Enforced, not remembered.** The `build` job fails if `dist/` ever carries
+`-webkit-text-fill-color` without a matching `-webkit-background-clip`. Negative-tested against a
+real `cssMinify: 'lightningcss'` build, which the guard rejects, and positively against the shipped
+build, which it passes. Setting `cssMinify: true` now fails CI instead of shipping silently — the
+AD-46 pattern (a control that is green and inert) is what this guard exists to avoid.
+
+**Revisit condition — falsifiable, unlike its predecessor.** The old condition was "if the CSS
+pipeline changes", which is unfalsifiable and was already met without anyone noticing. The
+condition now is: **when a Lightning CSS release emits `-webkit-background-clip` alongside the
+unprefixed property.** Test it by building with `cssMinify: 'lightningcss'` and grepping `dist/`
+for both declarations; if both appear, Lightning CSS becomes usable again.
 
 ### Deploy
 
@@ -437,6 +483,43 @@ sitemap advertising disallowed routes is contradictory and defeats the purpose. 
 a `noindex` meta tag: it asks a crawler not to *index* a page it has already *fetched*, and the
 concern here is fetching. Do not treat the file as permanent, and do not lift it in an earlier PR
 "to get it out of the way".
+
+### AD-11 · Deploy safety is detection-and-rollback, not origin-URL prevention
+
+**Decision.** The Hard Rule requiring a risky change to be verified on
+`https://synproconsulting.github.io/synpro-website/` **before** the custom domain follows is
+withdrawn. It is replaced by a four-step post-merge verification: (1) confirm the `deploy` job
+completed for the merge commit, identified by run ID; (2) byte-compare the live page against that
+run's CI artifact; (3) load the apex in a fresh/private window; (4) on any failure, `git revert` the
+merge commit and push. `RUNBOOK.md` §3 holds the executable form.
+
+**Why.** The old rule could not do what it claimed, and had never been able to. While a custom
+domain is configured, GitHub Pages **301-redirects the origin URL to the apex** — verified
+2026-08-08: `GET https://synproconsulting.github.io/synpro-website/` → `301`,
+`Location: https://synproconsulting.co/`. Both names are served by the same deployment, so
+"verifying on the origin first" fetched the same bytes from the same place the live domain would.
+It isolated nothing. Worse, it *looked* like a staging gate, which is the AD-46 failure mode
+exactly: a control that appears to provide safety, provides none, and suppresses the impulse to
+build one that works. The two ways to make it functional — removing the custom domain, or standing
+up a second Pages site — mean taking production down or maintaining a parallel deployment, neither
+justified for a placeholder. Given there is no staging and `main` is production, fast detection plus
+fast rollback is the guarantee actually available.
+
+**Consequence.** A bad deploy now reaches production before anyone knows. The window is roughly the
+time between merge and step 3, and the mitigation is that the window is *short and the rollback is
+cheap* — so rollback speed is the property to protect. Two things follow. `deploy` is
+`continue-on-error: true` under AD-6, so a failed deploy leaves a green CI run; step 1 must read the
+`deploy` job's own conclusion, never the run's overall status. And the byte-comparison in step 2 is
+only trustworthy because SWEB-12 made local builds byte-identical to CI — if that ever regresses,
+step 2 starts producing false alarms and the correct response is to suspect build shape before
+concluding the deploy failed (`RUNBOOK.md` §3).
+
+**Do not.** Do not remove the custom domain to make origin-URL verification work — the domain is
+production and `CNAME` is load-bearing under AD-9. Do not reintroduce "verify the origin URL first"
+in any document; it is not a weaker check, it is a non-functioning one. Do not weaken the
+replacement to "check the site loads" — the byte comparison against the artifact is what
+distinguishes *the deploy published what CI tested* from *something is being served*. Do not treat
+a green CI run as evidence the deploy succeeded.
 
 ---
 

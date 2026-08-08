@@ -31,24 +31,38 @@ export default defineConfig({
 
   vite: {
     build: {
-      // CSS minification is disabled deliberately. The default minifier drops
-      // `-webkit-background-clip: text` while keeping `-webkit-text-fill-color:
-      // transparent`, which renders the gradient "coming soon" text invisible on
-      // any engine without unprefixed `background-clip: text`.
+      // MUST stay 'esbuild'. Not `true`, and never 'lightningcss'  (SWEB-16).
       //
-      // REVISIT CONDITION MET, REVISIT DEFERRED (SWEB-13). The recorded condition
-      // for reopening this was a change to the CSS pipeline, and Sprint 3 is that
-      // change: the stylesheet moved into src/styles/ and grew from ~2.5 kB to
-      // roughly 12 kB, so the saving is no longer negligible. The owner deferred
-      // the revisit to Sprint 4 rather than change the CSS pipeline and re-enable
-      // minification in the same PR — Sprint 3's whole proof is byte-identical
-      // rendering, and re-enabling the minifier here would have destroyed it.
+      // `true` is not a neutral "on" here: it resolves to Astro 7.2.0's default CSS
+      // minifier, which is Lightning CSS. Lightning CSS 1.33.0 DROPS
+      // `-webkit-background-clip: text` while KEEPING `-webkit-text-fill-color:
+      // transparent`. On any engine that still needs the prefix for
+      // `background-clip: text`, the clip never applies but the fill stays
+      // transparent — so the gradient "coming soon" renders as an invisible bar.
+      // That is the Sprint 1 defect, and SWEB-16 confirmed it still reproduces on
+      // the current toolchain rather than trusting the Sprint 1 memory.
       //
-      // Sprint 4 must test whether the -webkit-background-clip regression still
-      // reproduces on the current Lightning CSS, then either re-enable with a
-      // guard or re-record this decision with fresh evidence. This is a deferred
-      // decision, not an oversight.
-      cssMinify: false,
+      // esbuild keeps the prefixed and unprefixed declarations together, so it
+      // minifies without the defect. Measured on this page (SWEB-16):
+      //
+      //   cssMinify        inlined CSS   -webkit-background-clip   renders
+      //   false             16,017 B     kept                      correct
+      //   'esbuild'          5,895 B     kept                      correct
+      //   true/lightningcss  5,724 B     STRIPPED                  INVISIBLE
+      //
+      // The extra 171 bytes Lightning CSS would save is the entire upside, against
+      // a text-invisible regression. Verified by screenshot at four viewports on a
+      // normal engine and on a simulated prefix-requiring engine: esbuild output is
+      // pixel-identical to the unminified baseline in all eight captures.
+      //
+      // This is enforced, not remembered: the `build` job in .github/workflows/ci.yml
+      // fails if dist/ ever contains `-webkit-text-fill-color` without a matching
+      // `-webkit-background-clip`. Flipping this value to `true` will fail CI.
+      //
+      // REVISIT when Lightning CSS emits `-webkit-background-clip` alongside the
+      // unprefixed property — falsifiable, unlike the old "if the CSS pipeline
+      // changes". See PROJECT_CONTEXT.md §4 for the test that decides it.
+      cssMinify: 'esbuild',
     },
   },
 });

@@ -22,9 +22,10 @@ for planning and prompt authoring, Claude Code as the Dev Agent, a rule-based au
 **Owner:** Johan Wessels — SynPro Consulting
 **Started:** August 2026
 
-**Last PR merged:** #7 (SWEB-12, SWEB-13, SWEB-14 — Sprint 3 design system; no visible change).
+**Last PR merged:** #8 (SWEB-15, SWEB-16, SWEB-17 — Sprint 4 deferred technical items; no visible
+change).
 
-**Current state:** Sprint 3 complete. The single-page placeholder (logo + "coming soon") a visitor
+**Current state:** Sprint 4 complete. The single-page placeholder (logo + "coming soon") a visitor
 saw before Sprint 1 is *still exactly* what they see — verified pixel-identical at four viewports —
 but it is now built on a real foundation. `package.json`, `astro.config.mjs`, `src/`, `public/`, and
 `.github/workflows/ci.yml` all exist; three blocking CI checks (`build`, `format`, `links`) gate a
@@ -41,6 +42,14 @@ The site has a favicon, an Apple touch icon, and an Open Graph card.
 **Local builds now match CI byte-for-byte.** `.gitattributes` and an explicit
 `build.inlineStylesheets: 'always'` removed the divergence that caused the Sprint 2 SWEB-11 defect,
 so a local `npm run build` can once again be trusted to tell you what production will serve.
+
+**CSS is minified, and the vendor-prefix trap that blocked it is now enforced by CI.** Sprint 4
+re-tested the Sprint 1 defect instead of trusting the note about it: Lightning CSS 1.33.0 still
+strips `-webkit-background-clip`, but esbuild does not, so `cssMinify: 'esbuild'` ships 5,895 B of
+inlined CSS in place of 16,017 B with rendering proven identical. The `build` job fails if the
+prefix pairing is ever broken in `dist/`. **The origin-URL Hard Rule was replaced** — it prescribed
+a check that could not work, because the `github.io` origin 301-redirects to the apex (AD-11).
+Asset references are now uniformly root-absolute.
 
 **The Actions deploy is live and serving production.** The `deploy` job succeeded on the first
 merge to `main`, and `https://synproconsulting.co` now serves the Astro build artifact, not the
@@ -76,9 +85,31 @@ exists in exactly one place — `public/CNAME` — as AD-9 always intended.
 
 **`main` is production — there is no staging.** Unlike the sibling Fracttal PRM and SynPro VSDC
 projects, a merge here publishes directly to a live public domain under the company's own name.
-Every PR must build green before merge, and any change that could take the site down (build
-config, DNS-adjacent files, the placeholder cutover) must be verified on the
-`synproconsulting.github.io/synpro-website/` origin URL before the custom domain follows it.
+Every PR must build green before merge.
+
+**After any merge that could take the site down** (build config, DNS-adjacent files, the
+placeholder cutover), run this verification — in this order, all four steps:
+
+1. **Confirm the deployment succeeded, by run ID.** Find the Actions run for the merge commit and
+   confirm its `deploy` job *completed*, not merely started. `deploy` is `continue-on-error: true`
+   (AD-6), so a red deploy still leaves a green CI run — the run's overall status does not tell
+   you the site published.
+2. **Byte-compare the live page against the CI artifact.** Download the `dist` artifact from that
+   run, or use the local `dist/` from the same commit, and compare SHA-256 against what
+   `https://synproconsulting.co/` actually serves. Equal means the artifact you tested is the
+   artifact being served.
+3. **Load the apex in a fresh/private window** and confirm it renders. Cache will otherwise show
+   you the previous build and give a false pass.
+4. **If any step fails, `git revert` the merge commit and push.** That is the rollback path. Do
+   not attempt a forward fix on production first.
+
+> **Do not "verify on the `github.io` origin URL first."** That instruction stood here until
+> Sprint 4 and could never have worked: while a custom domain is set,
+> `https://synproconsulting.github.io/synpro-website/` **301-redirects to the apex** — verified
+> 2026-08-08, `Location: https://synproconsulting.co/`. It serves the same bytes from the same
+> deployment, so it isolates nothing. See **AD-11**. The guarantee this project has is fast
+> detection and fast rollback, not prevention; write checks that respect that rather than checks
+> that only look like prevention.
 
 **Never commit directly to `main`.** All changes — including single-line fixes, content edits,
 and documentation updates — must go through a `feature/`, `fix/`, or `docs/` branch, a pull
@@ -239,6 +270,14 @@ delivery succeeded, was rate-limited, or was rejected as spam.
 Once the site builds via Actions, `CNAME` lives in the static passthrough directory and is
 published with every build. See the matching Hard Rule.
 
+### AD-11 · Deploy safety is detection-and-rollback, not origin-URL prevention
+*(SWEB-15.)* Origin-URL isolation is unavailable on this configuration: with a custom domain set,
+the `github.io` origin 301-redirects to the apex and serves the same deployment. The replacement
+is the four-step post-merge verification in the Hard Rules — deployment success by run ID, live
+page byte-compared against the CI artifact, apex checked in a fresh window, `git revert` as the
+rollback. **Consequence:** a bad deploy reaches production and is caught after the fact, so
+rollback speed is the thing to protect. Full text in `PROJECT_CONTEXT.md` §6.
+
 ### AD-10 · The site is crawler-locked until the cutover PR
 `public/robots.txt` disallows all user agents from all paths for the duration of the build
 programme. Because `main` is production, every page merged before the cutover is publicly fetchable
@@ -346,8 +385,8 @@ synpro-website/
 | Sprint field | `customfield_10020` |
 | Story points field | **`customfield_10036`** ("Story Points") |
 | Execution order field | `customfield_10071` |
-| Sprint fix version IDs | Sprint 1 → `11066` · Sprint 2 → `11099` · Sprint 3 → `11100` |
-| Native sprint IDs | Sprint 1 → `1039` · Sprint 2 → `1072` · Sprint 3 → `1073` |
+| Sprint fix version IDs | Sprint 1 → `11066` · Sprint 2 → `11099` · Sprint 3 → `11100` · Sprint 4 → `11101` |
+| Native sprint IDs | Sprint 1 → `1039` · Sprint 2 → `1072` · Sprint 3 → `1073` · Sprint 4 → `1074` |
 
 > **Story points is `customfield_10036`, not `customfield_10016`.** SWEB is a company-managed
 > project and board 100's configured estimation field is `customfield_10036` ("Story Points").
@@ -380,7 +419,7 @@ stale, the auto-merger merges on nothing.**
 
 | Job ID | What it does | Blocking? |
 |---|---|---|
-| `build` | `npm ci`, `npm run build`, then asserts `dist/CNAME` exists and equals `synproconsulting.co`; uploads `dist/` as an artifact | **Yes** |
+| `build` | `npm ci`, `npm run build`, then asserts `dist/CNAME` exists and equals `synproconsulting.co` **and** that `-webkit-background-clip` accompanies any `-webkit-text-fill-color` (SWEB-16); uploads `dist/` as an artifact | **Yes** |
 | `format` | `prettier --check` across `src/` and the root config files | **Yes** |
 | `links` | Downloads the `build` artifact and runs linkinator over it; internal links only | **Yes** |
 | `deploy` | Publishes the artifact to GitHub Pages (`main` only, `continue-on-error: true`) | No |
@@ -441,18 +480,17 @@ provider's secret store, edited manually.
   every user agent (AD-10). It is scaffolding: the cutover PR must lift it in the same commit that
   publishes the nav and the real Home page. Shipping the cutover without lifting it leaves the
   finished site unindexable.
-- **CSS minification is disabled** (`vite.build.cssMinify: false` in `astro.config.mjs`). The
-  default minifier strips `-webkit-background-clip: text` while retaining
-  `-webkit-text-fill-color: transparent`, which renders the gradient "coming soon" text invisible
-  on engines without unprefixed `background-clip`.
-  **Revisit condition MET in Sprint 3; revisit DEFERRED to Sprint 4 by owner decision.** The
-  recorded trigger for reopening this was a change to the CSS pipeline, and SWEB-13 was that
-  change — the stylesheet moved into `src/styles/` and grew from ~2.5 kB to roughly 12 kB, so the
-  saving is no longer negligible. It was deliberately not re-enabled in the same PR: Sprint 3's
-  entire proof is byte-identical rendering, and switching the minifier on would have destroyed it.
-  **Sprint 4 must** test whether the regression still reproduces on the current Lightning CSS, then
-  either re-enable behind a guard or re-record this decision with fresh evidence. This is a
-  deferred decision, not an oversight.
+- **CSS minification is `'esbuild'` and must never be `true`.** *(Resolved in Sprint 4 — SWEB-16.
+  Kept here because the trap is live, not because the work is outstanding.)* `cssMinify: true`
+  resolves to Astro's default CSS minifier, Lightning CSS, and **Lightning CSS 1.33.0 still strips
+  `-webkit-background-clip: text` while keeping `-webkit-text-fill-color: transparent`** — the
+  Sprint 1 defect, re-tested on 2026-08-08 rather than taken on memory. esbuild keeps the pairing.
+  Measured on the placeholder: unminified 16,017 B of inlined CSS · esbuild 5,895 B · Lightning CSS
+  5,724 B. Lightning CSS buys 171 bytes more and costs invisible text.
+  **Chrome cannot detect this defect** — it supports the unprefixed property, so screenshots pass
+  while other engines break. The `build` job therefore asserts the pairing in `dist/`; flipping
+  `cssMinify` to `true` fails CI. **Revisit** when Lightning CSS emits `-webkit-background-clip`
+  alongside the unprefixed property.
 
 ### Resolved
 
