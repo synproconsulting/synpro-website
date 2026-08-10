@@ -1,0 +1,33 @@
+---
+/**
+ * 404  (SWEB-24)
+ *
+ * Copy is DRAFTED, not owner-approved — listed in the sprint closeout for review.
+ *
+ * The way back is the contact page rather than the front page: while the site is still
+ * crawler-locked and `/` serves the placeholder (AD-10), sending someone to `/` would
+ * land them on "coming soon" with no way forward. Revisit at cutover, when `/` becomes
+ * the real Home.
+ */
+import PageLayout from '../layouts/PageLayout.astro';
+---
+
+<PageLayout
+  seoTitle="Page not found — SynPro Consulting"
+  seoDescription="That page doesn't exist. Find your way back to SynPro Consulting."
+>
+  <div class="notfound">
+    <p class="notfound__code">404</p>
+    <h1 class="page-title">That page doesn't exist.</h1>
+    <div class="page-intro">
+      <p>
+        The link may be out of date, or the address may have a typo in it. Nothing is broken on your
+        end.
+      </p>
+      <p>
+        If you were looking for something specific, tell me what it was and I'll point you at it.
+      </p>
+    </div>
+    <p class="cta__label"><a href="/contact">Start a conversation →</a></p>
+  </div>
+</PageLayout>

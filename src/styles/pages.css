@@ -1,0 +1,811 @@
+/**
+ * Content page styles  (SWEB-19 … SWEB-24)
+ *
+ * Imported by PageLayout.astro ONLY — never by BaseLayout. index.astro does not use
+ * PageLayout, so none of this reaches the placeholder's CSS bundle and its output stays
+ * byte-identical. That separation is the whole reason this is a fourth stylesheet
+ * rather than an addition to global.css.
+ *
+ * Every value below resolves to a token from tokens.css. No literal colour, font, or
+ * spacing value appears here (SWEB-13 rule). The only literals are the breakpoint
+ * numbers inside @media conditions, which custom properties cannot express — they are
+ * kept in step with --bp-* by hand, as PROJECT_CONTEXT.md §7 requires.
+ *
+ * LONG-FORM READING ON A DARK SURFACE is the case Sprint 3 never tested. The choices
+ * that address it are marked "long-form:" below so they can be found and revisited.
+ */
+
+/* ------------------------------------------------------------------ page body
+ * global.css styles bare `body` for the placeholder: flex-centred, text-centred,
+ * `height: 100%`, `overflow: hidden`. On a scrolling page `overflow: hidden` alone
+ * would make the content unreachable. Overridden here at higher specificity rather
+ * than by editing global.css, which would change the placeholder's bundle.
+ */
+body.page {
+  display: block;
+  height: auto;
+  min-height: 100dvh;
+  overflow: visible;
+  text-align: left;
+  padding: 0;
+  background: var(--surface-base);
+}
+
+/* The placeholder's radial glow, pinned to the viewport so it reads as a light
+ * source behind the page rather than stretching down a long document. */
+body.page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: var(--ph-bg-gradient);
+  opacity: var(--ph-tagline-opacity);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* The shell elements are lifted above the fixed glow. Named individually rather than
+ * with `body.page > *`, which would also match .skip-link and override its
+ * `position: absolute` — that bug rendered the skip link permanently visible at the top
+ * of every page instead of only on focus. */
+body.page > .site-header,
+body.page > .page-main,
+body.page > .site-footer {
+  position: relative;
+  z-index: 1;
+}
+
+/* global.css styles the bare `footer` TYPE selector for the placeholder: fixed to the
+ * bottom of the viewport, uppercased, and faded in on a 1.2s delay. Those declarations
+ * reach any <footer> on any page, including this one, and a class selector only wins
+ * for the properties it actually declares — the rest leak. Left alone, the site footer
+ * inherits `position: fixed` + `bottom` + the entrance animation and never appears in
+ * the document flow. Reset them here, at a specificity that wins.
+ *
+ * The two placeholder type selectors that leak are `footer` and `body`; both are
+ * neutralised in this file. Expect this block to disappear at cutover, when the
+ * placeholder and its --ph-* rules go. */
+body.page > footer {
+  position: relative;
+  inset: auto;
+  animation: none;
+  text-transform: none;
+}
+
+/* ------------------------------------------------------------------ skip link
+ * WCAG 2.2 AA 2.4.1 Bypass Blocks. Visible only on focus.
+ */
+.skip-link {
+  position: absolute;
+  left: var(--space-4);
+  top: var(--space-4);
+  z-index: 2;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--on-dark-accent);
+  color: var(--surface-base);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+/* ------------------------------------------------------------------ shell */
+.container {
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding-inline: var(--space-5);
+}
+
+.site-header {
+  padding-block: var(--space-5);
+}
+
+/* No navigation menu — nav is cutover-PR scope (SWEB-19 criterion 5). The mark is
+ * deliberately not a link: there is nowhere to link to while the front page is still
+ * the placeholder. */
+.site-header__mark {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* The spiral alone, not the full lockup. The lockup is stacked — spiral over "SynPro"
+ * over "CONSULTING" — and at header size all three collapse into mush, the same trap
+ * SWEB-14 hit with the favicon. The wordmark is set in type beside it instead. */
+.site-header__mark img {
+  width: calc(var(--space-8) * 1.5);
+  height: auto;
+}
+
+.site-header__name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--on-dark-text);
+}
+
+.page-main {
+  padding-block: var(--space-7) var(--space-9);
+}
+
+/* ------------------------------------------------------------------ page head */
+.page-head {
+  max-width: var(--content-max);
+  margin-bottom: var(--space-8);
+}
+
+.page-title {
+  font-size: var(--text-h1);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--on-dark-text);
+}
+
+.page-intro {
+  margin-top: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.page-intro p {
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+  color: var(--on-dark-text-muted);
+}
+
+/* ------------------------------------------------------------------ prose
+ * long-form: --content-max is 68ch, --text-lg sits just above 1rem, and
+ * --leading-relaxed (1.75) opens the lines. Sustained reading on a near-black surface
+ * needs more leading than the same copy on white; 1.6 read tight at this measure.
+ */
+.prose {
+  max-width: var(--content-max);
+}
+
+.prose > * + * {
+  margin-top: var(--space-5);
+}
+
+.prose p,
+.prose li {
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+  color: var(--on-dark-text);
+}
+
+.prose h2 {
+  margin-top: var(--space-8);
+  font-size: var(--text-h2);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-tight);
+  color: var(--on-dark-text);
+}
+
+.prose h3 {
+  margin-top: var(--space-7);
+  font-size: var(--text-h3);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  color: var(--on-dark-text);
+}
+
+.prose ul {
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.prose li::marker {
+  color: var(--on-dark-accent);
+}
+
+.prose strong {
+  font-weight: var(--weight-semibold);
+  color: var(--on-dark-text);
+}
+
+.prose em {
+  font-style: italic;
+}
+
+.prose a {
+  color: var(--on-dark-link);
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+}
+
+.prose a:hover {
+  color: var(--on-dark-accent);
+}
+
+/* ------------------------------------------------------------------ sections */
+.section {
+  margin-top: var(--space-9);
+}
+
+.section__heading {
+  font-size: var(--text-h2);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-tight);
+  color: var(--on-dark-text);
+}
+
+.eyebrow {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--on-dark-accent);
+}
+
+/* ------------------------------------------------------------------ services
+ * SWEB-20 criterion 3: a reader must see two practices, not one list of six. The
+ * practice is a banded region with its own rule and eyebrow; the offerings sit inside
+ * it, indented on wide viewports so the grouping survives scrolling.
+ */
+.practice {
+  margin-top: var(--space-9);
+  padding-top: var(--space-6);
+  border-top: var(--focus-ring-width) solid var(--on-dark-accent);
+}
+
+.practice__name {
+  font-size: var(--text-h2);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--on-dark-text);
+}
+
+.practice__intro {
+  max-width: var(--content-max);
+  margin-top: var(--space-4);
+}
+
+.practice__intro p {
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+  color: var(--on-dark-text-muted);
+}
+
+.practice__intro p + p {
+  margin-top: var(--space-4);
+}
+
+.offering {
+  margin-top: var(--space-8);
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+}
+
+.offering__number {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  color: var(--on-dark-accent);
+}
+
+.offering__title {
+  margin-top: var(--space-2);
+  font-size: var(--text-h3);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  color: var(--on-dark-text);
+}
+
+.offering__body {
+  margin-top: var(--space-5);
+}
+
+.offering__subhead {
+  margin-top: var(--space-6);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-normal);
+  color: var(--on-dark-text);
+}
+
+.offering__deliverables {
+  margin-top: var(--space-4);
+  max-width: var(--content-max);
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.offering__deliverables li {
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--on-dark-text);
+}
+
+.offering__deliverables li::marker {
+  color: var(--on-dark-accent);
+}
+
+.offering__whofor,
+.offering__note {
+  margin-top: var(--space-5);
+  max-width: var(--content-max);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--on-dark-text-muted);
+}
+
+.offering__note {
+  padding-left: var(--space-4);
+  border-left: var(--radius-sm) solid var(--on-dark-text-muted);
+}
+
+/* SWEB-20 criterion 4: the independence disclosure is the most consequential content
+ * on the page and is given the accent border, the raised surface, and more space than
+ * any offering. */
+.independence {
+  margin-top: var(--space-9);
+  padding: var(--space-7) var(--space-6);
+  border: var(--radius-sm) solid var(--on-dark-accent);
+  border-radius: var(--radius-lg);
+  background: var(--surface-glow);
+}
+
+.independence__heading {
+  font-size: var(--text-h3);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-snug);
+  color: var(--on-dark-accent);
+}
+
+.independence__body {
+  max-width: var(--content-max);
+  margin-top: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.independence__body p {
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+  color: var(--on-dark-text);
+}
+
+/* ------------------------------------------------------------------ about
+ * SWEB-21: circular crop. The image is pre-cropped square and face-positioned at build
+ * time, so this is a frame rather than a correction — no object-fit repositioning.
+ */
+.portrait {
+  width: var(--space-10);
+  height: var(--space-10);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--surface-raised);
+}
+
+.portrait img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.about-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  align-items: flex-start;
+}
+
+@media (min-width: 48rem) {
+  .about-head {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-7);
+  }
+
+  /* The served image is 384px, so this renders at 1x device pixels here and 2x on the
+   * mobile size above. */
+  .portrait {
+    width: calc(var(--space-10) * 1.5);
+    height: calc(var(--space-10) * 1.5);
+  }
+}
+
+/* ------------------------------------------------------------------ home */
+.hero {
+  padding-block: var(--space-8) var(--space-7);
+}
+
+.hero__headline {
+  max-width: var(--content-max);
+  font-size: var(--text-h1);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--on-dark-text);
+}
+
+.hero__body {
+  max-width: var(--content-max);
+  margin-top: var(--space-5);
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+  color: var(--on-dark-text-muted);
+}
+
+.credibility {
+  margin-top: var(--space-8);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-5);
+  padding-block: var(--space-6);
+  border-top: var(--ph-divider-height) solid var(--surface-glow);
+  border-bottom: var(--ph-divider-height) solid var(--surface-glow);
+}
+
+@media (min-width: 48rem) {
+  .credibility {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 64rem) {
+  .credibility {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.credibility__figure {
+  font-size: var(--text-h4);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  color: var(--on-dark-accent);
+}
+
+.credibility__text {
+  margin-top: var(--space-2);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--on-dark-text-muted);
+}
+
+.practice-cards {
+  margin-top: var(--space-6);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-5);
+}
+
+@media (min-width: 48rem) {
+  .practice-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Cards deliberately do not link anywhere yet (SWEB-23 criterion 3), so the label is
+ * rendered as muted text rather than as an affordance that does nothing. */
+.card {
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+}
+
+.card__title {
+  font-size: var(--text-h4);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  color: var(--on-dark-text);
+}
+
+.card__body {
+  margin-top: var(--space-4);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--on-dark-text);
+}
+
+.card__label {
+  margin-top: var(--space-5);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-normal);
+  color: var(--on-dark-text-muted);
+}
+
+.home-section {
+  margin-top: var(--space-9);
+  max-width: var(--content-max);
+}
+
+.home-section p {
+  margin-top: var(--space-4);
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+  color: var(--on-dark-text);
+}
+
+.home-section .card__label {
+  margin-top: var(--space-5);
+}
+
+/* ------------------------------------------------------------------ cta */
+.cta {
+  margin-top: var(--space-9);
+  padding: var(--space-7) var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+}
+
+.cta__heading {
+  max-width: var(--content-max);
+  font-size: var(--text-h3);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  color: var(--on-dark-text);
+}
+
+.cta__body {
+  max-width: var(--content-max);
+  margin-top: var(--space-4);
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+  color: var(--on-dark-text-muted);
+}
+
+/* There is nowhere to link to yet — no nav, no published Home (AD-10). The call to
+ * action is therefore text, not a dead button. */
+.cta__label {
+  margin-top: var(--space-5);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--on-dark-accent);
+}
+
+/* ------------------------------------------------------------------ contact
+ * SWEB-22 criterion 5 (D6): the form is visually primary; the email address is plain
+ * text beside it.
+ */
+.contact-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-8);
+  align-items: start;
+}
+
+@media (min-width: 64rem) {
+  .contact-layout {
+    grid-template-columns: 3fr 2fr;
+    gap: var(--space-9);
+  }
+}
+
+.form {
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.field__label {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--on-dark-text);
+}
+
+.field__optional {
+  font-weight: var(--weight-regular);
+  color: var(--on-dark-text-muted);
+}
+
+.field__control {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: var(--ph-divider-height) solid var(--on-dark-text-muted);
+  border-radius: var(--radius-md);
+  background: var(--surface-base);
+  color: var(--on-dark-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+}
+
+.field__control::placeholder {
+  color: var(--on-dark-text-muted);
+  opacity: 1;
+}
+
+.field__control:hover {
+  border-color: var(--on-dark-text);
+}
+
+/* Focus is provided globally by :focus-visible in global.css. The border change is
+ * additive, never the only indicator. */
+.field__control:focus-visible {
+  border-color: var(--on-dark-accent);
+}
+
+textarea.field__control {
+  min-height: var(--space-10);
+  resize: vertical;
+}
+
+select.field__control {
+  appearance: none;
+}
+
+.field__error {
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--on-dark-accent);
+}
+
+.field__error:empty {
+  display: none;
+}
+
+.field__control[aria-invalid='true'] {
+  border-color: var(--on-dark-accent);
+}
+
+/* SWEB-22 criterion 6. Hidden from sighted users AND from assistive technology:
+ * `display: none` removes it from the accessibility tree, tabindex -1 keeps it out of
+ * the tab order, and aria-hidden is set in the markup. A honeypot that a screen reader
+ * announces is a trap for the user rather than for the bot. */
+.honeypot {
+  display: none;
+}
+
+.form__submit {
+  align-self: flex-start;
+  padding: var(--space-3) var(--space-6);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--on-dark-accent);
+  color: var(--surface-base);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-normal);
+  cursor: pointer;
+}
+
+.form__submit:hover {
+  background: var(--ui-lime);
+}
+
+/* The form posts nowhere in this sprint (SWEB-22 criterion 7). The status region is
+ * live so the outcome is announced rather than only shown. */
+.form__status {
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--on-dark-text);
+}
+
+.form__status:empty {
+  display: none;
+}
+
+.contact-aside > * + * {
+  margin-top: var(--space-6);
+}
+
+.contact-aside__heading {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--on-dark-accent);
+}
+
+.contact-aside__value {
+  margin-top: var(--space-2);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--on-dark-text);
+}
+
+/* The aside is secondary to the form (D6). Its prose headings are stepped down from
+ * --text-h2 so they read as supporting notes rather than competing with it. */
+.contact-aside .prose h2 {
+  margin-top: var(--space-6);
+  font-size: var(--text-h4);
+}
+
+.contact-aside .prose p {
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--on-dark-text-muted);
+}
+
+.contact-aside a {
+  color: var(--on-dark-link);
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+}
+
+.contact-aside a:hover {
+  color: var(--on-dark-accent);
+}
+
+/* ------------------------------------------------------------------ 404 */
+.notfound {
+  padding-block: var(--space-9);
+  max-width: var(--content-max);
+}
+
+.notfound__code {
+  font-size: var(--text-h2);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  color: var(--on-dark-accent);
+}
+
+/* The 404's way back is the only inter-page link on the site (SWEB-24 criterion 1).
+ * Without this it inherits the user-agent link colour — default blue on a near-black
+ * surface, which is both off-token and a contrast failure. */
+.notfound .cta__label a {
+  color: var(--on-dark-accent);
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+}
+
+.notfound .cta__label a:hover {
+  color: var(--on-dark-text);
+}
+
+/* ------------------------------------------------------------------ footer */
+.site-footer {
+  margin-top: var(--space-9);
+  padding-block: var(--space-6);
+  border-top: var(--ph-divider-height) solid var(--surface-glow);
+}
+
+.site-footer__inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+@media (min-width: 48rem) {
+  .site-footer__inner {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
+.site-footer p,
+.site-footer a {
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-normal);
+  color: var(--on-dark-text-muted);
+}
+
+.site-footer a {
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+}
+
+.site-footer a:hover {
+  color: var(--on-dark-accent);
+}

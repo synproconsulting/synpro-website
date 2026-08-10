@@ -1,0 +1,31 @@
+---
+/**
+ * /approach  (SWEB-20)
+ *
+ * Continuous prose, so the whole page body is Markdown rendered through `.prose`. The
+ * sourcing flow's five step names are the owner's own and are transcribed verbatim.
+ */
+import { getEntry, render } from 'astro:content';
+import PageLayout from '../layouts/PageLayout.astro';
+
+const page = await getEntry('pages', 'approach');
+if (!page) throw new Error('Missing content entry: pages/approach');
+const { title, seoTitle, seoDescription, intro, cta } = page.data;
+const { Content } = await render(page);
+---
+
+<PageLayout title={title} seoTitle={seoTitle} seoDescription={seoDescription} intro={intro}>
+  <div class="prose">
+    <Content />
+  </div>
+
+  {
+    cta && (
+      <section class="cta">
+        {cta.heading && <h2 class="cta__heading">{cta.heading}</h2>}
+        <p class="cta__body">{cta.body}</p>
+        <p class="cta__label">{cta.label}</p>
+      </section>
+    )
+  }
+</PageLayout>

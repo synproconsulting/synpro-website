@@ -1,0 +1,108 @@
+---
+/**
+ * /services  (SWEB-20)
+ *
+ * Two practice areas, six offerings. The page groups offerings under their practice so
+ * a reader sees two practices rather than one list of six (criterion 3), and gives the
+ * independence disclosure the strongest treatment on the page (criterion 4).
+ *
+ * All copy comes from the collections. The draft's warning markers and its "Notes for
+ * the owner" section are apparatus for the owner and were not transcribed.
+ */
+import { getCollection, getEntry, render } from 'astro:content';
+import PageLayout from '../layouts/PageLayout.astro';
+
+const page = await getEntry('pages', 'services');
+if (!page) throw new Error('Missing content entry: pages/services');
+const { title, seoTitle, seoDescription, intro, independence, cta } = page.data;
+
+const practices = (await getCollection('practices')).sort((a, b) => a.data.order - b.data.order);
+const offerings = (await getCollection('offerings')).sort((a, b) => a.data.order - b.data.order);
+
+// Render each practice intro and offering description through the Markdown pipeline.
+// Done up front because `render()` is async and cannot be awaited inside the template.
+const practiceBlocks = await Promise.all(
+  practices.map(async (practice) => {
+    const { Content: PracticeIntro } = await render(practice);
+    const items = await Promise.all(
+      offerings
+        .filter((offering) => offering.data.practice.id === practice.id)
+        .map(async (offering) => ({
+          data: offering.data,
+          Body: (await render(offering)).Content,
+        })),
+    );
+    return { practice, PracticeIntro, items };
+  }),
+);
+---
+
+<PageLayout title={title} seoTitle={seoTitle} seoDescription={seoDescription} intro={intro}>
+  {
+    practiceBlocks.map(({ practice, PracticeIntro, items }) => (
+      <section class="practice" aria-labelledby={`practice-${practice.id}`}>
+        <p class="eyebrow">Practice area {practice.data.order === 1 ? 'one' : 'two'}</p>
+        <h2 class="practice__name" id={`practice-${practice.id}`}>
+          {practice.data.name}
+        </h2>
+
+        <div class="practice__intro">
+          <PracticeIntro />
+        </div>
+
+        {items.map(({ data, Body }) => (
+          <article class="offering">
+            <p class="offering__number">{String(data.order).padStart(2, '0')}</p>
+            <h3 class="offering__title">{data.title}</h3>
+
+            <div class="offering__body prose">
+              <Body />
+            </div>
+
+            <p class="offering__subhead">What you get</p>
+            <ul class="offering__deliverables">
+              {data.deliverables.map((item) => (
+                <li>{item}</li>
+              ))}
+            </ul>
+
+            <p class="offering__whofor">
+              <strong>Who it's for</strong> — {data.whoFor}
+            </p>
+
+            {data.note && (
+              <p class="offering__note">
+                <strong>Note:</strong> {data.note}
+              </p>
+            )}
+          </article>
+        ))}
+      </section>
+    ))
+  }
+
+  {
+    independence && (
+      <section class="independence" aria-labelledby="independence">
+        <h2 class="independence__heading" id="independence">
+          {independence.heading}
+        </h2>
+        <div class="independence__body">
+          {independence.paragraphs.map((p) => (
+            <p>{p}</p>
+          ))}
+        </div>
+      </section>
+    )
+  }
+
+  {
+    cta && (
+      <section class="cta">
+        {cta.heading && <h2 class="cta__heading">{cta.heading}</h2>}
+        <p class="cta__body">{cta.body}</p>
+        <p class="cta__label">{cta.label}</p>
+      </section>
+    )
+  }
+</PageLayout>

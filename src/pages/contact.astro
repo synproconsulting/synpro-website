@@ -1,0 +1,218 @@
+---
+/**
+ * /contact  (SWEB-22)
+ *
+ * THE FORM SUBMITS NOWHERE. There is no Worker yet and no third-party form service.
+ * The <form> carries no `action` and its submit handler always calls preventDefault(),
+ * so there is no code path that performs a network request. Once validation passes, the
+ * specified failure message is shown — the graceful degradation the ticket asks for.
+ *
+ * Every label, option, and message is read from the content entry rather than written
+ * here, because those strings are the specification the Worker will validate against.
+ */
+import { getEntry, render } from 'astro:content';
+import PageLayout from '../layouts/PageLayout.astro';
+
+const page = await getEntry('pages', 'contact');
+if (!page) throw new Error('Missing content entry: pages/contact');
+const { title, seoTitle, seoDescription, intro, form, email, linkedin } = page.data;
+if (!form) throw new Error('pages/contact is missing its form specification');
+const { Content } = await render(page);
+
+const field = (name: string) => {
+  const found = form.fields.find((f) => f.name === name);
+  if (!found) throw new Error(`Missing form field specification: ${name}`);
+  return found;
+};
+
+const name = field('name');
+const company = field('company');
+const emailField = field('email');
+const enquiry = field('enquiryType');
+const message = field('message');
+---
+
+<PageLayout title={title} seoTitle={seoTitle} seoDescription={seoDescription} intro={intro}>
+  <div class="contact-layout">
+    <!-- D6: the form is visually primary; the address is plain text in the aside. -->
+    <form class="form" id="contact-form" novalidate>
+      <div class="field">
+        <label class="field__label" for="name">{name.label}</label>
+        <input
+          class="field__control"
+          type="text"
+          id="name"
+          name="name"
+          autocomplete="name"
+          required
+          aria-describedby="name-error"
+        />
+        <span class="field__error" id="name-error" aria-live="polite"></span>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="company">
+          {company.label}
+          <span class="field__optional">(optional)</span>
+        </label>
+        <input
+          class="field__control"
+          type="text"
+          id="company"
+          name="company"
+          autocomplete="organization"
+        />
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="email">{emailField.label}</label>
+        <input
+          class="field__control"
+          type="email"
+          id="email"
+          name="email"
+          autocomplete="email"
+          required
+          aria-describedby="email-error"
+        />
+        <span class="field__error" id="email-error" aria-live="polite"></span>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="enquiryType">{enquiry.label}</label>
+        <select
+          class="field__control"
+          id="enquiryType"
+          name="enquiryType"
+          required
+          aria-describedby="enquiryType-error"
+        >
+          <option value="">Choose one</option>
+          {form.enquiryTypes.map((value) => <option value={value}>{value}</option>)}
+        </select>
+        <span class="field__error" id="enquiryType-error" aria-live="polite"></span>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="message">{message.label}</label>
+        <textarea
+          class="field__control"
+          id="message"
+          name="message"
+          rows="6"
+          placeholder={message.placeholder}
+          required
+          aria-describedby="message-error"></textarea>
+        <span class="field__error" id="message-error" aria-live="polite"></span>
+      </div>
+
+      {
+        /*
+        Honeypot. Hidden from sighted users AND from assistive technology: `display: none`
+        keeps it out of the accessibility tree, aria-hidden and tabindex="-1" make that
+        explicit and keep it out of the tab order. A honeypot a screen reader announces
+        traps the user rather than the bot.
+      */
+      }
+      <div class="honeypot" aria-hidden="true">
+        <label for="website">Website</label>
+        <input type="text" id="website" name="website" tabindex="-1" autocomplete="off" />
+      </div>
+
+      <button class="form__submit" type="submit">{form.submitLabel}</button>
+
+      <p class="form__status" id="form-status" role="status" aria-live="polite"></p>
+    </form>
+
+    <aside class="contact-aside">
+      <div>
+        <h2 class="contact-aside__heading">Email</h2>
+        <p class="contact-aside__value">{email}</p>
+      </div>
+      {
+        linkedin && (
+          <div>
+            <h2 class="contact-aside__heading">LinkedIn</h2>
+            <p class="contact-aside__value">
+              <a href={linkedin.href} rel="me noopener" target="_blank">
+                {linkedin.label}
+              </a>
+            </p>
+          </div>
+        )
+      }
+      <div class="prose">
+        <Content />
+      </div>
+    </aside>
+  </div>
+</PageLayout>
+
+<script
+  define:vars={{
+    v: form.validation,
+    failure: form.messages.failure,
+    maxLength: form.messageMaxLength,
+  }}
+>
+  // No endpoint exists. This handler never performs a network request — it validates,
+  // then reports the specified failure message. See SWEB-22.
+  const formEl = document.getElementById('contact-form');
+  const status = document.getElementById('form-status');
+
+  const setError = (id, msg) => {
+    const control = document.getElementById(id);
+    const slot = document.getElementById(`${id}-error`);
+    if (slot) slot.textContent = msg;
+    if (control) {
+      if (msg) control.setAttribute('aria-invalid', 'true');
+      else control.removeAttribute('aria-invalid');
+    }
+    return !msg;
+  };
+
+  const validate = () => {
+    const value = (id) => (document.getElementById(id)?.value ?? '').trim();
+    const results = [];
+
+    results.push(setError('name', value('name') ? '' : v.nameEmpty));
+
+    const email = value('email');
+    // Deliberately permissive: the Worker is the authority on acceptance. This only
+    // catches the obvious shapes so the visitor is not bounced for an unusual address.
+    if (!email) results.push(setError('email', v.emailEmpty));
+    else
+      results.push(
+        setError('email', /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? '' : v.emailMalformed),
+      );
+
+    results.push(setError('enquiryType', value('enquiryType') ? '' : v.enquiryEmpty));
+
+    const message = value('message');
+    if (!message) results.push(setError('message', v.messageEmpty));
+    else results.push(setError('message', message.length > maxLength ? v.messageTooLong : ''));
+
+    return results.every(Boolean);
+  };
+
+  formEl?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    status.textContent = '';
+
+    if (!validate()) {
+      // Move focus to the first field in error so the message is reached, not just shown.
+      formEl.querySelector('[aria-invalid="true"]')?.focus();
+      return;
+    }
+
+    status.textContent = failure;
+  });
+
+  // Clear a field's error as soon as it is corrected, rather than only on resubmit.
+  ['name', 'email', 'enquiryType', 'message'].forEach((id) => {
+    const control = document.getElementById(id);
+    control?.addEventListener('input', () => {
+      if (control.getAttribute('aria-invalid') === 'true') validate();
+    });
+  });
+</script>

@@ -261,6 +261,64 @@ npm run links        :: broken internal links in dist/ — run AFTER a build
 `npm run links` reads `dist/`, so a stale or absent `dist/` gives a meaningless result. Always
 build first.
 
+> **`npm run links` only reaches pages something links to.** linkinator crawls outward from the
+> `dist/` root. Until the cutover PR adds navigation, the content pages are unreachable from `/`
+> and are **not checked** — the job passes having scanned only the placeholder's links. Check
+> internal references on new pages by hand until nav exists. See the Known Issues note in
+> `CLAUDE.md`.
+
+### Presenting a build for owner review *(standing step in content sprints — SWEB-19)*
+
+**Content sprints do not open a PR until the owner has seen the pages.** Because `main` is
+production, review has to happen before merge, not after. Nothing is deployed or reachable from
+the internet during this step — that is the point.
+
+```cmd
+cd "C:\Johan\SynPro Consulting\Website\Website Development"
+npm run build
+npm run preview -- --host
+```
+
+`--host` also binds the LAN address the command prints, so the owner can open the same build on a
+phone over the same Wi-Fi. Give them:
+
+1. **`http://localhost:4321`** plus the **exact routes** to visit — a route with no nav pointing at
+   it cannot be discovered by clicking.
+2. The LAN URL for mobile review.
+3. **Any interaction that will not work, stated up front.** Through Sprint 5 the contact form does
+   not submit, because no Worker exists. Said in advance it is expected behaviour; discovered by
+   the owner it reads as a defect.
+
+`astro preview` daemonises — it keeps serving after the command returns. Stop it with:
+
+```cmd
+npx astro preview stop
+```
+
+Text corrections at this stage are cheap: page copy lives in `src/content/` (D7), so changing a
+sentence does not touch a component.
+
+### Screenshotting a page at a given viewport
+
+**`chrome --headless --window-size=W,H --screenshot` is not trustworthy below 500px on Windows.**
+Chrome clamps the window to a 500 CSS-px minimum. Asking for 375 produces a 375px-wide *image of a
+500px-wide layout* — a crop, which makes a correct page look broken. Sprint 5 lost time to this and
+briefly reported a defect that did not exist.
+
+Confirm what actually rendered rather than trusting the flag:
+
+```js
+window.innerWidth; // reported 500 while the PNG was 375 wide
+```
+
+For any viewport under 500px, drive Chrome through the DevTools Protocol and set the viewport with
+`Emulation.setDeviceMetricsOverride`, which is not subject to that floor. Node 22+ has a built-in
+`WebSocket`, so this needs no dependency. `Page.captureScreenshot` with
+`captureBeyondViewport: true` also gives a full-page capture, which `--screenshot` cannot.
+
+Whatever harness is used, **have it report the viewport it actually got** and compare that against
+the one requested. A clamp that is printed cannot pass unnoticed twice.
+
 **Commit the lockfile with every dependency change.** `package.json` and `package-lock.json` are
 critical files — read before modifying, never remove an existing dependency, only append.
 
@@ -571,10 +629,23 @@ Two rules follow from SWEB-7, where three inherited claims turned out to be wron
 | A `.gitattributes` change needs a re-checkout to take effect | `git add --renormalize .` updates the index but leaves the working copy on its old line endings, so the build still sees CRLF | Delete tracked files and `git checkout -- .` to force the filter (§8) |
 | The link count is not a constant | It was 2 through Sprint 2 and 5 from Sprint 3 — fonts and icons are crawlable | Re-measure after adding any page, image, font, or icon; never carry the old number forward (§8) |
 | DNS guidance often says "remove existing records" | Following it takes down company mail | Additive changes only (§5) |
+| `chrome --window-size` under 500px silently clamps | Windows enforces a 500 CSS-px minimum, so a 375px capture is a crop of a 500px layout — correct pages look broken | Use CDP `Emulation.setDeviceMetricsOverride`, and have the harness report the viewport it actually got (§6) |
+| The link checker cannot see an unlinked page | Nothing links to the content pages until cutover, so `links` passes having scanned only the placeholder | Check internal references by hand until nav exists (§6) |
+| `global.css` styles bare `body` and `footer` type selectors | Those declarations leak into every page; a class selector only wins for properties it declares, so the site footer inherited `position: fixed` and vanished | Reset them in `pages.css`; expect the block to go at cutover (`PROJECT_CONTEXT.md` §3) |
+| An unstyled `<a>` falls back to user-agent blue | Off-token and a contrast failure on the dark surface; shipped briefly on the 404 | Style every link explicitly (`PROJECT_CONTEXT.md` §7) |
 
 ---
 
-*Last updated: 2026-08-08 — Sprint 4 (SWEB-15 … SWEB-17, PR #8): §3's "verify against the origin
+*Last updated: 2026-08-09 — Sprint 5 (SWEB-19 … SWEB-24, PR #10): §6 gained two standing
+procedures. **Presenting a build for owner review** — content sprints now build, run
+`npm run preview -- --host`, and give the owner the exact routes plus any interaction that will
+not work, before any PR opens. **Screenshotting at a given viewport** — `chrome --window-size`
+clamps to a 500 CSS-px minimum on Windows, so sub-500px captures are crops of a 500px layout;
+use CDP `Emulation.setDeviceMetricsOverride` and have the harness report the viewport it actually
+got. Also recorded in §6 that `npm run links` cannot reach a page nothing links to, which is every
+content page until cutover. Four §10 rows added.*
+
+*Previously: 2026-08-08 — Sprint 4 (SWEB-15 … SWEB-17, PR #8): §3's "verify against the origin
 URL first" was **removed and replaced** with a four-step post-merge verification — deploy job
 completed by run ID, live page byte-compared against the CI artifact, apex in a fresh window,
 `git revert` as rollback (AD-11). The origin URL 301-redirects to the apex (verified 2026-08-08),

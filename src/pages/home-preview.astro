@@ -1,0 +1,95 @@
+---
+/**
+ * /home-preview  (SWEB-23)
+ *
+ * THE REAL HOME PAGE, AT A TEMPORARY ROUTE. `index.astro` still serves the placeholder
+ * and is not touched by this sprint — promoting this to `/` is the cutover PR's job,
+ * and doing it here would publish a half-built site under the company's own name
+ * (AD-10).
+ *
+ * Headline option one (offer-led) is built. Option two is reported in the sprint
+ * closeout for the owner to choose from a rendered page rather than from a document.
+ *
+ * The two practice cards deliberately do not link anywhere (criterion 3) — there is no
+ * nav and Services is not meant to be discoverable yet.
+ */
+import { getEntry } from 'astro:content';
+import PageLayout from '../layouts/PageLayout.astro';
+
+const page = await getEntry('pages', 'home');
+if (!page) throw new Error('Missing content entry: pages/home');
+const {
+  seoTitle,
+  seoDescription,
+  hero,
+  credibility,
+  practicesIntro,
+  practiceCards,
+  sections,
+  cta,
+} = page.data;
+if (!hero) throw new Error('pages/home is missing its hero');
+---
+
+<PageLayout seoTitle={seoTitle} seoDescription={seoDescription}>
+  <section class="hero">
+    <h1 class="hero__headline">{hero.headline}</h1>
+    <p class="hero__body">{hero.body}</p>
+    <p class="cta__label">{hero.ctaLabel}</p>
+  </section>
+
+  {
+    credibility && (
+      <section class="credibility" aria-label="Credentials">
+        {credibility.map((item) => (
+          <div>
+            <p class="credibility__figure">{item.figure}</p>
+            <p class="credibility__text">{item.text}</p>
+          </div>
+        ))}
+      </section>
+    )
+  }
+
+  {
+    practiceCards && (
+      <section class="section" aria-labelledby="practices">
+        <h2 class="section__heading" id="practices">
+          Two practice areas
+        </h2>
+        {practicesIntro && <p class="hero__body">{practicesIntro}</p>}
+        <div class="practice-cards">
+          {practiceCards.map((card) => (
+            <article class="card">
+              <h3 class="card__title">{card.title}</h3>
+              <p class="card__body">{card.body}</p>
+              <p class="card__label">{card.ctaLabel}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+    )
+  }
+
+  {
+    sections?.map((section) => (
+      <section class="home-section">
+        <h2 class="section__heading">{section.heading}</h2>
+        {section.paragraphs.map((p) => (
+          <p>{p}</p>
+        ))}
+        {section.ctaLabel && <p class="card__label">{section.ctaLabel}</p>}
+      </section>
+    ))
+  }
+
+  {
+    cta && (
+      <section class="cta">
+        {cta.heading && <h2 class="cta__heading">{cta.heading}</h2>}
+        <p class="cta__body">{cta.body}</p>
+        <p class="cta__label">{cta.label}</p>
+      </section>
+    )
+  }
+</PageLayout>

@@ -22,12 +22,15 @@ for planning and prompt authoring, Claude Code as the Dev Agent, a rule-based au
 **Owner:** Johan Wessels — SynPro Consulting
 **Started:** August 2026
 
-**Last PR merged:** #8 (SWEB-15, SWEB-16, SWEB-17 — Sprint 4 deferred technical items; no visible
-change).
+**Last PR merged:** #10 (SWEB-19 … SWEB-24 — Sprint 5, five real pages built behind the crawler
+lockout; front page unchanged).
 
-**Current state:** Sprint 4 complete. The single-page placeholder (logo + "coming soon") a visitor
-saw before Sprint 1 is *still exactly* what they see — verified pixel-identical at four viewports —
-but it is now built on a real foundation. `package.json`, `astro.config.mjs`, `src/`, `public/`, and
+**Current state:** Sprint 5 complete. **Five real pages now exist** — `/services`, `/approach`,
+`/about`, `/contact`, and the real Home at the temporary route `/home-preview` — plus a 404. They
+are reachable only by typing the URL: there is no navigation, nothing links to them, and
+`robots.txt` still disallows every crawler (AD-10). **The site's front door has not changed.** The
+placeholder a visitor saw before Sprint 1 is *still exactly* what they see at `/` — verified
+pixel-identical at four viewports, byte-identical output — and it is built on a real foundation. `package.json`, `astro.config.mjs`, `src/`, `public/`, and
 `.github/workflows/ci.yml` all exist; three blocking CI checks (`build`, `format`, `links`) gate a
 ported rule-based auto-merger. DNS is configured at Namecheap (four GitHub Pages apex A records +
 `www` CNAME) and TLS is issued. The site is crawler-locked by `public/robots.txt` until the cutover
@@ -317,24 +320,45 @@ a defined removal point, not a permanent setting. Full text in `PROJECT_CONTEXT.
 
 ---
 
-## Project Structure (actual — as of Sprint 3)
+## Project Structure (actual — as of Sprint 5)
 
 ```
 synpro-website/
 ├── src/
+│   ├── content.config.ts     # Collection schemas (SWEB-19) — see PROJECT_CONTEXT.md §2
+│   ├── content/              # ALL PAGE COPY. Edit text here, never in a component (D7)
+│   │   ├── pages/            # One entry per route
+│   │   │   ├── home.md       # The real Home — rendered at /home-preview, NOT at /
+│   │   │   ├── services.md   # Intro, independence disclosure, CTA
+│   │   │   ├── approach.md   # Frontmatter + long-form Markdown body
+│   │   │   ├── about.md      # Frontmatter + long-form Markdown body
+│   │   │   └── contact.md    # ALSO THE FORM SPEC — the Worker validates against it
+│   │   ├── practices/        # The two Services practice areas (2 entries)
+│   │   └── offerings/        # The six Services offerings (6 entries)
 │   ├── pages/
-│   │   └── index.astro       # The placeholder page — the site's only route
+│   │   ├── index.astro       # The placeholder — the site's PUBLIC front door. Untouched.
+│   │   ├── services.astro    # /services
+│   │   ├── approach.astro    # /approach
+│   │   ├── about.astro       # /about
+│   │   ├── contact.astro     # /contact — form UI only, submits nowhere
+│   │   ├── home-preview.astro # The real Home at a TEMPORARY route (SWEB-23)
+│   │   └── 404.astro         # Copy drafted, not owner-approved
 │   ├── layouts/
-│   │   └── BaseLayout.astro  # Page shell: head, style imports, <slot />
+│   │   ├── BaseLayout.astro  # <head>, style imports, <body class={bodyClass}>, <slot />
+│   │   └── PageLayout.astro  # Content-page shell: skip link, header, main, footer. No nav.
 │   ├── styles/               # The design system (SWEB-13)
 │   │   ├── tokens.css        # Every custom property. No rules.
 │   │   ├── fonts.css         # Single @font-face — self-hosted Sora
-│   │   └── global.css        # Reset, base, focus, placeholder rules
+│   │   ├── global.css        # Reset, base, focus, placeholder rules
+│   │   └── pages.css         # Content-page rules (SWEB-19). Imported by PageLayout ONLY
 │   └── components/           # Empty (.gitkeep) — populated as sections are built
 ├── public/                   # Static passthrough — copied verbatim into dist/
 │   ├── CNAME                 # CRITICAL — custom domain; must survive every build
 │   ├── robots.txt            # Disallow-all crawler lockout until cutover (AD-10)
-│   ├── logo.png              # Full lockup, alpha-intact. The on-page mark.
+│   ├── logo.png              # Full lockup, alpha-intact. The placeholder's on-page mark.
+│   ├── mark-spiral.png       # Spiral ONLY, 192×95 — the content-page header mark
+│   ├── portrait-johan-wessels.webp  # 384², circular, rim faded to --surface-base
+│   ├── portrait-johan-wessels.jpg   # JPEG fallback for the same
 │   ├── favicon.ico           # 16/32/48 — cropped to the SPIRAL only
 │   ├── apple-touch-icon.png  # 180×180 on --surface-base
 │   ├── og-image.png          # 1200×630 Open Graph card
@@ -366,8 +390,16 @@ synpro-website/
 > `public/`. If one reappears at the root, something has republished the branch root — investigate
 > before deleting it again.
 
-> Not yet created: `src/content/` (content collections) and `worker/` (the Cloudflare Worker
-> contact-form endpoint). Both arrive in the sprint that takes them.
+> **`src/pages/index.astro` is the public front door and is not the real Home page.** The real Home
+> lives at `/home-preview` until the cutover PR promotes it. Editing `index.astro` publishes a
+> half-built site to the live domain — the one outcome AD-10 exists to prevent.
+
+> **All page copy lives in `src/content/`, not in components.** A wording change is a content edit.
+> `src/content/pages/contact.md` is also the contact-form specification — the Worker will validate
+> against its enquiry values and messages, so treat those strings as an interface.
+
+> Not yet created: `worker/` (the Cloudflare Worker contact-form endpoint). It arrives in the
+> sprint that takes it.
 
 > `Documentation/` sits at the repo root, is untracked, and is canonical. Never `git clean` it.
 
@@ -385,8 +417,8 @@ synpro-website/
 | Sprint field | `customfield_10020` |
 | Story points field | **`customfield_10036`** ("Story Points") |
 | Execution order field | `customfield_10071` |
-| Sprint fix version IDs | Sprint 1 → `11066` · Sprint 2 → `11099` · Sprint 3 → `11100` · Sprint 4 → `11101` |
-| Native sprint IDs | Sprint 1 → `1039` · Sprint 2 → `1072` · Sprint 3 → `1073` · Sprint 4 → `1074` |
+| Sprint fix version IDs | Sprint 1 → `11066` · Sprint 2 → `11099` · Sprint 3 → `11100` · Sprint 4 → `11101` · Sprint 5 → `11102` |
+| Native sprint IDs | Sprint 1 → `1039` · Sprint 2 → `1072` · Sprint 3 → `1073` · Sprint 4 → `1074` · Sprint 5 → `1075` |
 
 > **Story points is `customfield_10036`, not `customfield_10016`.** SWEB is a company-managed
 > project and board 100's configured estimation field is `customfield_10036` ("Story Points").
@@ -479,8 +511,21 @@ provider's secret store, edited manually.
 *Active items only. Resolved items are moved out as they close; historical follow-ups live in
 `CLAUDE_HISTORY.md`.*
 
-- **Cloudflare Worker not yet created.** The contact form has no endpoint. Until the sprint that
-  takes it, the site has no working contact path.
+- **Cloudflare Worker not yet created.** The contact form has no endpoint. The Contact page's form
+  is built and validates client-side, but submission is disabled — a valid submission shows the
+  specified failure message. Until the sprint that takes it, the site has no working contact path.
+- **The `links` check cannot reach the five new pages.** linkinator crawls outward from `dist/`
+  root, and nothing links to `/services`, `/approach`, `/about`, `/contact`, or `/home-preview` —
+  by design, because there is no nav until cutover (AD-10). It still reports success having scanned
+  5 links, all on the placeholder. **A broken internal link on a content page would not fail CI
+  today.** This is the Sprint 1 "green and inert" pattern in a new place. It resolves itself at
+  cutover when nav links every page; until then, internal references on new pages must be checked
+  by hand. Sprint 5 verified every one resolves.
+- **A `--window-size` below 500px does not do what it looks like on Windows.** Chrome clamps the
+  window to a 500 CSS-px minimum, so `chrome --headless --window-size=375,812 --screenshot`
+  produces a 375px-wide *crop of a 500px layout* — pages look broken when they are not. Sprint 5
+  hit this and briefly reported a defect that did not exist. Use the CDP harness
+  (`Emulation.setDeviceMetricsOverride`) for any viewport under 500px; see `RUNBOOK.md` §6.
 - **Repo is public.** GitHub Pages on a free plan requires it. Nothing in these docs is sensitive, but every future commit is world-readable — never commit a secret, an internal contact, or client-identifying material.
 - **`deploy` is `continue-on-error: true`** and therefore can fail unnoticed (AD-6's own
   consequence note). Check it at every sprint closeout.
