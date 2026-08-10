@@ -38,11 +38,73 @@ returned to the visitor (see AD-8 in `CLAUDE.md`).
 
 ## 2. Content Model
 
-*Populated when Astro content collections are scaffolded.*
+*Established in Sprint 5 (SWEB-19). Implemented in `src/content.config.ts` — that file is the
+executable copy of this section. If the two disagree, the config is what ships; fix the doc.*
 
-Record here: each collection, its schema, where its source copy lives, and which pages consume
-it. The intent is that a content edit never requires reading component code to find out where a
-string is rendered.
+**D7: page copy lives in Markdown under `src/content/` so text can be edited without touching a
+component.** Changing a sentence is a content edit, not a code change.
+
+### Three collections, because the content is genuinely three shapes
+
+| Collection | Entries | What it is |
+|---|---|---|
+| `pages` | 5 — `home`, `services`, `approach`, `about`, `contact` | One per route. Shared metadata plus the blocks that page needs. |
+| `practices` | 2 — `facilities-services`, `workplace-maintenance-technology` | The two Services practice areas. Grouping and order. |
+| `offerings` | 6 — `1-strategic-sourcing` … `6-deployment-assessment` | The six Services offerings. Repeating structure, so it is data. |
+
+The schema was derived from the five approved drafts, not imposed on them. Services alone carries
+two practices, six offerings, per-offering deliverables lists and a who-it's-for line; flattening
+that into `pages` would have meant six near-identical frontmatter blocks in one file.
+
+### Where prose lives — the one rule to know before editing
+
+| | Use for | Rendered how |
+|---|---|---|
+| **Markdown body** | Continuous prose needing inline formatting — italics, bold, links | Through Astro's Markdown pipeline |
+| **Frontmatter** | Short discrete strings, and structured or specification data | **As plain text — Markdown syntax will NOT render** |
+
+Every frontmatter field was checked against the drafts: none of this sprint's frontmatter copy
+needs inline formatting. The prose that does — the journal title on About, the italicised *why* on
+Services — lives in a body. **If you add emphasis to a frontmatter string it will render as literal
+asterisks.** Move that prose to the body instead.
+
+### Schema
+
+`pages` — `seoTitle`, `seoDescription`, `title` (the H1), optional `intro[]`, optional `cta`
+(`heading?`, `body`, `label`). Then optional per-page blocks: `hero`, `credibility[]`,
+`practicesIntro`, `practiceCards[]`, `sections[]` (Home); `independence` (Services); `form`,
+`email`, `linkedin` (Contact).
+
+`practices` — `name`, `order`. Body is the practice intro (only practice two has one).
+
+`offerings` — `title`, `order`, `practice` (a `reference('practices')`), `deliverables[]`,
+`whoFor`, optional `note`. Body is the description prose.
+
+### The Contact `form` block is a specification, not just copy
+
+`src/content/pages/contact.md` holds the four permitted `enquiryTypes`, the `submitLabel`, the
+`messages.success` / `messages.failure` pair, all six `validation` strings, and
+`messageMaxLength`. **The Cloudflare Worker built in a later sprint validates against exactly these
+values**, so changing a string here changes the contract with that Worker. The success/failure pair
+must stay shape-identical under AD-8.
+
+> `messageMaxLength` is **4000, drafted not owner-approved**. The draft asked for "something
+> generous" and specified no number. Confirm it in the Worker ticket.
+
+> The success message is recorded here but **does not appear in the built page** — nothing can
+> succeed while there is no endpoint. That is expected, not a missing string.
+
+### Draft apparatus is excluded from render
+
+The copy drafts in `Documentation\` carry ⚠ markers (flagging Claude-invented rather than
+sourced material) and a "Notes for the owner" section. Both are apparatus for the owner and are
+**not transcribed** into `src/content/`. The build is grepped for both at every sprint closeout.
+
+> **Pointer (SWEB-12).** The Sprint 3 tickets document asked for the `build.inlineStylesheets`
+> decision to be recorded "in §2". That was a mis-reference — §2 is the content model, and build
+> configuration belongs with the rest of the build in **§4, "Stylesheet emission"**. The sections
+> are deliberately stable and are referenced by number from prompts, so §4 was written rather
+> than the numbering changed. Look there.
 
 > **Pointer (SWEB-12).** The Sprint 3 tickets document asked for the `build.inlineStylesheets`
 > decision to be recorded "in §2". That was a mis-reference — §2 is the content model, and build
@@ -109,10 +171,86 @@ One detail is deliberate and easy to "fix" wrongly:
 - **The year script carries `is:inline`.** Without it Astro bundles the script and hoists it into
   `<head>` as a module. `is:inline` keeps it in place and unprocessed, matching the original.
 
+### `src/layouts/PageLayout.astro` *(SWEB-19)*
+
+The shell every content page uses. It **complements** `BaseLayout` rather than replacing it:
+`BaseLayout` still owns `<head>` — canonical URL, Open Graph, icons, font preload — so metadata
+stays in one place. `PageLayout` adds the visible shell: skip link, header, `<main id="main">`,
+footer.
+
+`src/styles/pages.css` is imported **here and nowhere else**. `index.astro` does not use
+`PageLayout`, so none of it reaches the placeholder's CSS bundle and the front page stays
+byte-identical. That separation is the reason it is a fourth stylesheet rather than an addition to
+`global.css`.
+
+**There is deliberately no navigation.** Nav is cutover-PR scope (AD-10). The footer carries the
+copyright line and the LinkedIn link, and nothing else links between pages — with one exception
+noted below.
+
+#### `BaseLayout` gained one prop, and it is output-neutral
+
+`bodyClass?: string`, rendered as `<body class={bodyClass}>`. `PageLayout` passes `"page"`.
+`index.astro` passes nothing, and **Astro omits the attribute entirely when a class is
+undefined**, so the placeholder's markup and CSS bundle are both unchanged — verified by
+byte-identical output.
+
+#### Two placeholder rules leak onto content pages, and both are neutralised
+
+`global.css` styles the bare `body` and `footer` **type selectors** for the placeholder. A class
+selector only wins for the properties it actually declares, so the rest leak into any page:
+
+- `body` — flex-centred, `text-align: center`, `height: 100%`, **`overflow: hidden`**. On a
+  scrolling page that last one alone makes the content unreachable.
+- `footer` — **`position: fixed`**, `bottom`, uppercased, and an entrance animation on a 1.2s
+  delay. Left alone, the site footer never appears in the document flow at all.
+
+Both are reset in `pages.css` at `body.page` and `body.page > footer`. **Expect this block to
+disappear at cutover**, when the placeholder and its `--ph-*` rules go. Do not "tidy" it away
+before then.
+
+> A related trap, found and fixed in the same sprint: an earlier `body.page > *` rule also matched
+> the skip link and overrode its `position: absolute`, rendering it permanently visible at the top
+> of every page instead of only on focus. The shell elements are now named individually.
+
+### The routes built in Sprint 5
+
+| Route | Source | Notes |
+|---|---|---|
+| `/services` | `pages/services` + `practices` + `offerings` | Practices banded with an accent rule; independence disclosure given the strongest treatment on the page |
+| `/approach` | `pages/approach` | All prose, rendered through `.prose` |
+| `/about` | `pages/about` | Portrait, pre-cropped at build time |
+| `/contact` | `pages/contact` | Form UI only — see §2 and the note below |
+| `/home-preview` | `pages/home` | **The real Home page at a temporary route.** `/` is still the placeholder |
+| `/404` | `404.astro` | Copy drafted, not owner-approved |
+
+**`/home-preview` becomes `/` in the cutover PR, not before.** Promoting it early publishes a
+half-built site under the company's own name, which is what AD-10 exists to prevent.
+
+**The 404's link to `/contact` is the only inter-page link on the site.** It exists because SWEB-24
+requires the 404 to offer a route back, and `/` is still the placeholder. Revisit at cutover.
+
+#### The portrait was processed at build time, not by CSS
+
+`Johan_Wessels2.jpg` measures **2073×2441** — the ticket recorded 1008×1204, which was wrong
+(Sprint 3 lesson 5: measure the asset). Landmarks were measured from the source — hair top y=183,
+eye line y=830, chin y=1379, head centre x=1080 — and a 2000px square was cropped at x=73, y=0,
+putting the eye line at 41.5% from the top with ~9% headroom.
+
+The source sits on flat light grey. A circular crop alone would put a bright disc on a near-black
+page, and cutting the subject out would fringe. Instead **the rim is faded to `--surface-base` over
+the outer 14% of the radius and composited onto that same colour**, so the corner pixels equal the
+page background exactly and no seam is possible. Served as WebP with a JPEG fallback at 384px for a
+192px render.
+
+`public/mark-spiral.png` was cropped from `logo.png` the same way: the lockup is stacked — spiral
+over "SynPro" over "CONSULTING" — and at header size all three collapse into mush, the trap SWEB-14
+hit with the favicon. The header uses the spiral alone with the wordmark set in type beside it.
+
 ### Asset path convention — root-absolute, always *(settled SWEB-17)*
 
 **Every reference to a file in `public/` starts with `/`.** This is the rule for every page built
-from here on, not a preference:
+from here on, not a preference. **Applied to every page added in Sprint 5** — the portrait, the
+spiral mark, and the shell's assets are all root-absolute:
 
 ```html
 <img src="/logo.png" />           <!-- correct -->
@@ -626,10 +764,62 @@ snapped to the nearest scale step, because snapping them would change what rende
 a refactor with byte-identical output as its proof. **Expect them to disappear when the placeholder
 is replaced at cutover.** Do not build new components on them.
 
+### Long-form reading on the dark surface *(settled SWEB-19)*
+
+Sprint 3 proved the tokens against a one-screen placeholder. Sprint 5 was the first sustained
+reading test — roughly 1,300 words on Services. Three choices carry it, and they are marked
+`long-form:` in `pages.css` so they can be found:
+
+- **`--content-max` (68ch)** on every prose container. Measured, not eyeballed.
+- **`--text-lg`** for body copy rather than `--text-base`. Just above 1rem; body copy never goes
+  below 1rem anywhere.
+- **`--leading-relaxed` (1.75)**, not `--leading-normal`. Sustained reading on a near-black surface
+  needs more leading than the same copy on white — at this measure 1.6 read tight.
+
+**Judgement, recorded because a ratio does not capture it:** the result is comfortable. Body text
+at 16.72:1 is very high contrast, which on a dark surface risks halation on long passages; it does
+not glare here because the type is not bolded and the leading is open. The `--surface-raised` cards
+that hold each offering do real work — they break 1,300 words into six bounded regions, so the page
+reads as a list of things rather than an essay. **If a future page runs long-form prose without
+that banding, re-check it.**
+
+### Colour pairings introduced in Sprint 5
+
+All computed with the WCAG relative-luminance formula. Every one clears the **4.5:1 body-text**
+floor; the lowest is 5.87:1.
+
+| Foreground | Background | Ratio | Used for |
+|---|---|---|---|
+| `--on-dark-text` | `--surface-raised` | 15.16:1 | Body copy in offerings and cards |
+| `--on-dark-text` | `--surface-glow` | 13.80:1 | Independence disclosure body |
+| `--on-dark-accent` | `--surface-raised` | 13.05:1 | Offering numbers |
+| `--on-dark-accent` | `--surface-glow` | 11.88:1 | Independence heading |
+| `--on-dark-link` | `--surface-raised` | 6.29:1 | Links in the Contact aside |
+| `--on-dark-text-muted` | `--surface-raised` | 5.87:1 | Who-it's-for lines, card labels |
+| `--surface-base` | `--on-dark-accent` | 14.39:1 | Submit button label on accent |
+| `--surface-base` | `--ui-lime` | 9.65:1 | Submit button hover |
+
+### Buttons, links, and form controls *(established SWEB-19 … SWEB-22)*
+
+Previously listed here as "still to establish". They arrived with the pages that needed them:
+
+- **Primary button** — `--on-dark-accent` fill, `--surface-base` label, `--radius-md`, hovering to
+  `--ui-lime`. Used for the Contact submit.
+- **Links in prose** — `--on-dark-link`, underlined with `--space-1` offset, hovering to
+  `--on-dark-accent`. **Always style links explicitly**: an unstyled `<a>` falls back to the
+  user-agent blue, which on this surface is both off-token and a contrast failure. That shipped
+  briefly on the 404 and was caught in review.
+- **Form controls** — `--surface-base` fill inside a `--surface-raised` card, bordered in
+  `--on-dark-text-muted`, `--radius-md`. Border shifts to `--on-dark-accent` on focus and on
+  `aria-invalid`; **the border is never the only focus indicator** — `:focus-visible` in
+  `global.css` supplies the ring. Error text uses `--on-dark-accent` in an `aria-live="polite"`
+  region tied to the control by `aria-describedby`.
+- **Call-to-action labels that are not links** — rendered as accent text, not as buttons. Nothing
+  links out yet (AD-10), and a button that does nothing is worse than a label.
+
 ### Still to establish
 
-Button and link treatments, form-control styling, and logo clear-space rules. Not invented here —
-they arrive with the first page that needs them.
+Logo clear-space rules, and the navigation treatment — which arrives with the cutover PR.
 
 > The Fracttal PRM design standards (`fp-card`, `fp-table`, its status-badge palette) are an
 > internal application's system and deliberately **not** inherited here.

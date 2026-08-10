@@ -554,4 +554,78 @@ moved.
 
 ---
 
-*Next entry: Sprint 5.*
+## Sprint 5 — Build the Five Pages  ·  2026-08-09
+
+**PRs merged:** #10
+**Fix version / native sprint:** 11102 / 1075
+**Jira keys:** SWEB-19 … SWEB-24
+**Blocking CI checks at close:** `build`, `format`, `links`
+**Live site state at close:** **unchanged for any visitor.** `https://synproconsulting.co` still
+serves the placeholder — `index.astro` was not modified, `dist/index.html` is byte-identical at
+8,805 bytes and SHA-256 `de94c224…`, and the rendered front page differs from the pre-sprint
+baseline by **0 pixels** at 1920×1080, 1280×800, 768×1024 and 375×812. Five real pages and a 404
+now exist in the deployed artifact and are fetchable by typing their URL, but nothing links to
+them and `robots.txt` still disallows every crawler (AD-10). **The site is not published.**
+
+### What landed
+- **SWEB-19** — three content collections under `src/content/` (`pages`, `practices`, `offerings`)
+  with a typed schema derived from the five approved drafts, plus `PageLayout.astro` and
+  `pages.css`. Footer carries the copyright line and the LinkedIn link; no navigation.
+- **SWEB-20** — `/services` (two practice areas, six offerings, ~1,300 words) and `/approach`,
+  transcribed verbatim. Practices are banded so a reader sees two practices, not six items; the
+  independence disclosure gets the strongest treatment on the page.
+- **SWEB-21** — `/about` with the portrait processed at build time: measured landmarks, deliberate
+  square crop, rim faded to `--surface-base`, WebP + JPEG at 384px for a 192px render.
+- **SWEB-22** — `/contact` form UI. Exactly the four specified enquiry values, the six exact
+  validation strings, a honeypot hidden from sighted users and assistive technology alike. **It
+  posts nowhere** — no `action`, no `fetch`, verified with network interceptors recording zero
+  requests on both the invalid and valid paths.
+- **SWEB-23** — the real Home at `/home-preview`, headline option one. `$2B`, `2B+` and `15%`:
+  zero hits in built HTML.
+- **SWEB-24** — `404.astro` plus a unique title, meta description and canonical for every route.
+  All drafted, not owner-approved, and listed in the closeout.
+
+### ADs recorded
+- None. No architectural decision was needed; AD-10 governed the whole sprint and held.
+
+### Lessons
+1. **A screenshot harness can lie about the thing it exists to prove.** `chrome --headless
+   --window-size=375,812 --screenshot` produced a 375px-wide image of a **500px-wide layout**,
+   because Chrome on Windows clamps the window to a 500 CSS-px minimum. The crop made correct pages
+   look broken, and a defect was reported that did not exist. A probe reporting `window.innerWidth`
+   settled it in one capture. **Have the harness report the viewport it actually got, and compare
+   that against the one requested** — a clamp that is printed cannot pass unnoticed twice. The fix
+   was to drive Chrome over CDP and set the viewport with `Emulation.setDeviceMetricsOverride`.
+2. **Type selectors written for one page leak into every page.** `global.css` styles bare `body`
+   and `footer` for the placeholder. A class selector only wins for the properties it *declares*,
+   so `.site-footer` inherited `position: fixed` and the footer vanished from every content page
+   while being present in the HTML. The same shape of bug made the skip link permanently visible.
+   Both were fixed in `pages.css` rather than by editing `global.css`, which would have changed the
+   front page. **When a page-specific stylesheet uses element selectors, the next page pays for
+   it.**
+3. **"Renders correctly" needs a check that is not a screenshot.** Eyeballing four viewports per
+   page across six routes is 24 judgements and misses a few pixels of overflow. Comparing
+   `scrollWidth` against `clientWidth` on every route/viewport combination answered it in one run,
+   and also verified one `h1` per page, no `img` without `alt`, and every form control labelled.
+4. **Verbatim transcription needs a checklist, not attention.** The About draft's "Let's connect"
+   section was simply missed on the first pass, and nothing in the build would ever have caught it.
+   Enumerating every heading in every draft and ticking them off against the content files found
+   it. **Diff the section list, do not trust a read-through.**
+5. **The asset geometry in the ticket was wrong again.** `Johan_Wessels2.jpg` is 2073×2441, not the
+   1008×1204 the ticket recorded — the same class of error as SWEB-14's favicon crop, and the
+   second sprint running. **Measure the asset. The ticket is a statement of intent, not a
+   measurement.**
+6. **A control that is green because it has nothing to check is still green.** `npm run links`
+   passes having scanned five links, all on the placeholder — it crawls outward from `/` and
+   nothing links to the new pages by design. A broken internal reference on a content page would
+   not fail CI today. Recorded in Known Issues rather than "fixed" by adding nav, which AD-10
+   forbids. This is the Sprint 1 zero-links lesson recurring in a new place.
+7. **Long-form on a dark surface works, and the reason is not the contrast ratio.** 16.72:1 body
+   text could glare over 1,300 words; it does not, because the leading is opened to 1.75 and the
+   measure held to 68ch. The bigger factor is structural — banding each offering onto
+   `--surface-raised` breaks the page into six bounded regions, so it reads as a list rather than
+   an essay. **A page of continuous prose without that banding needs re-checking.**
+
+---
+
+*Next entry: Sprint 6.*

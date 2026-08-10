@@ -1,0 +1,52 @@
+---
+/**
+ * /about  (SWEB-21)
+ *
+ * The portrait is pre-cropped square and face-positioned at build time (see the
+ * processing note in PROJECT_CONTEXT.md §3), so the markup only frames it. WebP is
+ * offered first with a JPEG fallback; both are 384px for a 192px render.
+ */
+import { getEntry, render } from 'astro:content';
+import PageLayout from '../layouts/PageLayout.astro';
+
+const page = await getEntry('pages', 'about');
+if (!page) throw new Error('Missing content entry: pages/about');
+const { title, seoTitle, seoDescription, intro } = page.data;
+const { Content } = await render(page);
+---
+
+<PageLayout seoTitle={seoTitle} seoDescription={seoDescription}>
+  <div class="page-head">
+    <div class="about-head">
+      <div class="portrait">
+        <picture>
+          <source srcset="/portrait-johan-wessels.webp" type="image/webp" />
+          <img
+            src="/portrait-johan-wessels.jpg"
+            alt="Johan Wessels, founder of SynPro Consulting"
+            width="384"
+            height="384"
+            loading="eager"
+            decoding="async"
+          />
+        </picture>
+      </div>
+      <div>
+        <h1 class="page-title">{title}</h1>
+        {
+          intro && (
+            <div class="page-intro">
+              {intro.map((p) => (
+                <p>{p}</p>
+              ))}
+            </div>
+          )
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="prose">
+    <Content />
+  </div>
+</PageLayout>

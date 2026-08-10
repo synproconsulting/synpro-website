@@ -21,9 +21,19 @@ import '../styles/global.css';
 interface Props {
   title: string;
   description: string;
+  /**
+   * Class applied to <body> (SWEB-19). global.css styles bare `body` for the
+   * placeholder — centred, `overflow: hidden`, full height — which is correct for a
+   * one-screen page and wrong for a scrolling one. PageLayout passes "page" here and
+   * pages.css overrides those rules at `body.page`, a higher specificity.
+   *
+   * Left undefined by index.astro, and Astro omits the attribute entirely when a class
+   * is undefined — so the placeholder's markup and its CSS bundle are both unchanged.
+   */
+  bodyClass?: string;
 }
 
-const { title, description } = Astro.props;
+const { title, description, bodyClass } = Astro.props;
 
 // Absolute URLs. Open Graph scrapers do not resolve relative paths, so these are
 // built against `site` in astro.config.mjs rather than written as "/og-image.png".
@@ -81,7 +91,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     />
     <slot name="head" />
   </head>
-  <body>
+  <body class={bodyClass}>
     <slot />
   </body>
 </html>

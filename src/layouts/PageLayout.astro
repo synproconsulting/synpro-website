@@ -1,0 +1,77 @@
+---
+/**
+ * Shared shell for every content page  (SWEB-19)
+ *
+ * Complements BaseLayout rather than replacing it: BaseLayout still owns <head> — the
+ * canonical URL, Open Graph tags, icons, and the font preload — so metadata stays in
+ * one place (SWEB-24). This adds the visible shell: header, main, footer.
+ *
+ * pages.css is imported HERE and nowhere else. index.astro does not use this layout,
+ * so the placeholder's CSS bundle is untouched and its output stays byte-identical.
+ *
+ * There is deliberately NO navigation. Nav is cutover-PR scope (AD-10) — the site is
+ * still crawler-locked and the front page is still the placeholder, so a menu would
+ * link a visitor into pages that are not meant to be found yet.
+ */
+import BaseLayout from './BaseLayout.astro';
+import '../styles/pages.css';
+
+interface Props {
+  /** <title> — per-page, drafted in SWEB-24. */
+  seoTitle: string;
+  seoDescription: string;
+  /** The page H1. Omitted by pages that render their own heading, e.g. Home's hero. */
+  title?: string;
+  /** Lead paragraphs under the H1. */
+  intro?: string[];
+}
+
+const { seoTitle, seoDescription, title, intro } = Astro.props;
+const year = new Date().getFullYear();
+---
+
+<BaseLayout title={seoTitle} description={seoDescription} bodyClass="page">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container">
+      <div class="site-header__mark">
+        <img src="/mark-spiral.png" alt="" width="192" height="95" />
+        <span class="site-header__name">SynPro Consulting</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="page-main" id="main">
+    <div class="container">
+      {
+        title && (
+          <div class="page-head">
+            <h1 class="page-title">{title}</h1>
+            {intro && (
+              <div class="page-intro">
+                {intro.map((p) => (
+                  <p>{p}</p>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      }
+      <slot />
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="site-footer__inner">
+        <p>&copy; {year} SynPro Consulting</p>
+        <p>
+          <a href="https://www.linkedin.com/in/askjohan/" rel="me noopener" target="_blank">
+            LinkedIn
+          </a>
+        </p>
+      </div>
+    </div>
+  </footer>
+</BaseLayout>
