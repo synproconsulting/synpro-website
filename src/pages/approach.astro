@@ -1,9 +1,15 @@
 ---
 /**
- * /approach  (SWEB-20)
+ * /approach  (SWEB-20, restyled SWEB-28 / 29)
  *
  * Continuous prose, so the whole page body is Markdown rendered through `.prose`. The
  * sourcing flow's five step names are the owner's own and are transcribed verbatim.
+ *
+ * NO COPY CHANGED IN SPRINT 6.
+ *
+ * The section markers are built from the rendered headings rather than hand-listed, so
+ * they cannot drift out of step with the content. Astro slugifies Markdown heading ids,
+ * which is what makes the in-page anchors work without touching the copy.
  */
 import { getEntry, render } from 'astro:content';
 import PageLayout from '../layouts/PageLayout.astro';
@@ -11,17 +17,33 @@ import PageLayout from '../layouts/PageLayout.astro';
 const page = await getEntry('pages', 'approach');
 if (!page) throw new Error('Missing content entry: pages/approach');
 const { title, seoTitle, seoDescription, intro, cta } = page.data;
-const { Content } = await render(page);
+const { Content, headings } = await render(page);
+
+// SWEB-29: in-page anchors only — these are ids on this page, never cross-page links.
+const markers = headings.filter((h) => h.depth === 2).map((h) => ({ id: h.slug, label: h.text }));
 ---
 
-<PageLayout title={title} seoTitle={seoTitle} seoDescription={seoDescription} intro={intro}>
-  <div class="prose">
+<PageLayout
+  title={title}
+  seoTitle={seoTitle}
+  seoDescription={seoDescription}
+  intro={intro}
+  markers={markers}
+>
+  {
+    /*
+    data-reveal-children: the reveal script tags each direct child so the Markdown
+    sections arrive in turn. Per-element classes cannot be authored inside Markdown,
+    and hard-coding a wrapper per section would put presentation in the content file.
+  */
+  }
+  <div class="prose" data-reveal-children>
     <Content />
   </div>
 
   {
     cta && (
-      <section class="cta">
+      <section class="cta reveal">
         {cta.heading && <h2 class="cta__heading">{cta.heading}</h2>}
         <p class="cta__body">{cta.body}</p>
         <p class="cta__label">{cta.label}</p>

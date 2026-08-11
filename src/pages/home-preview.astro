@@ -1,17 +1,19 @@
 ---
 /**
- * /home-preview  (SWEB-23)
+ * /home-preview  (SWEB-23, restyled SWEB-26 / 28)
  *
  * THE REAL HOME PAGE, AT A TEMPORARY ROUTE. `index.astro` still serves the placeholder
  * and is not touched by this sprint — promoting this to `/` is the cutover PR's job,
  * and doing it here would publish a half-built site under the company's own name
  * (AD-10).
  *
+ * This is the one page that keeps the hero type scale (--text-h1). SWEB-25 reserved it
+ * for exactly this: an interior page title and a homepage hero are different things.
+ *
  * Headline option one (offer-led) is built. Option two is reported in the sprint
  * closeout for the owner to choose from a rendered page rather than from a document.
  *
- * The two practice cards deliberately do not link anywhere (criterion 3) — there is no
- * nav and Services is not meant to be discoverable yet.
+ * The two practice cards deliberately do not link anywhere (SWEB-23 criterion 3).
  */
 import { getEntry } from 'astro:content';
 import PageLayout from '../layouts/PageLayout.astro';
@@ -26,13 +28,14 @@ const {
   practicesIntro,
   practiceCards,
   sections,
+  sectorBlock,
   cta,
 } = page.data;
 if (!hero) throw new Error('pages/home is missing its hero');
 ---
 
 <PageLayout seoTitle={seoTitle} seoDescription={seoDescription}>
-  <section class="hero">
+  <section class="hero reveal">
     <h1 class="hero__headline">{hero.headline}</h1>
     <p class="hero__body">{hero.body}</p>
     <p class="cta__label">{hero.ctaLabel}</p>
@@ -40,7 +43,7 @@ if (!hero) throw new Error('pages/home is missing its hero');
 
   {
     credibility && (
-      <section class="credibility" aria-label="Credentials">
+      <section class="credibility reveal" aria-label="Credentials">
         {credibility.map((item) => (
           <div>
             <p class="credibility__figure">{item.figure}</p>
@@ -53,7 +56,7 @@ if (!hero) throw new Error('pages/home is missing its hero');
 
   {
     practiceCards && (
-      <section class="section" aria-labelledby="practices">
+      <section class="section reveal" aria-labelledby="practices">
         <h2 class="section__heading" id="practices">
           Two practice areas
         </h2>
@@ -73,7 +76,7 @@ if (!hero) throw new Error('pages/home is missing its hero');
 
   {
     sections?.map((section) => (
-      <section class="home-section">
+      <section class="home-section reveal">
         <h2 class="section__heading">{section.heading}</h2>
         {section.paragraphs.map((p) => (
           <p>{p}</p>
@@ -84,8 +87,25 @@ if (!hero) throw new Error('pages/home is missing its hero');
   }
 
   {
+    sectorBlock && (
+      <section class="sector-block reveal" aria-labelledby="sectors">
+        <h2 class="section__heading" id="sectors">
+          {sectorBlock.heading}
+        </h2>
+        <p class="sector-block__lead">{sectorBlock.lead}</p>
+        <ul class="tiles">
+          {sectorBlock.tiles.map((t) => (
+            <li class="tile">{t}</li>
+          ))}
+        </ul>
+        <p class="sector-block__tail">{sectorBlock.tail}</p>
+      </section>
+    )
+  }
+
+  {
     cta && (
-      <section class="cta">
+      <section class="cta reveal">
         {cta.heading && <h2 class="cta__heading">{cta.heading}</h2>}
         <p class="cta__body">{cta.body}</p>
         <p class="cta__label">{cta.label}</p>

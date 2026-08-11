@@ -261,11 +261,14 @@ npm run links        :: broken internal links in dist/ — run AFTER a build
 `npm run links` reads `dist/`, so a stale or absent `dist/` gives a meaningless result. Always
 build first.
 
-> **`npm run links` only reaches pages something links to.** linkinator crawls outward from the
-> `dist/` root. Until the cutover PR adds navigation, the content pages are unreachable from `/`
-> and are **not checked** — the job passes having scanned only the placeholder's links. Check
-> internal references on new pages by hand until nav exists. See the Known Issues note in
-> `CLAUDE.md`.
+> **`npm run links` now checks every built page** *(SWEB-30)*. It runs `scripts/check-links.mjs`,
+> which enumerates every `.html` in `dist/` and gives linkinator each as an explicit starting
+> point — a crawl from `/` alone reached only the placeholder, because nothing links to the
+> content pages until cutover. The route list is derived from the build, so a page added later is
+> covered the day it exists. **59 links across 7 routes** at Sprint 6 close, up from 5.
+>
+> Re-run the negative test whenever that script changes: break an internal reference, confirm the
+> job exits 1 and names the referring page, then restore it.
 
 ### Presenting a build for owner review *(standing step in content sprints — SWEB-19)*
 
@@ -300,6 +303,23 @@ sentence does not touch a component.
 
 ### Screenshotting a page at a given viewport
 
+**The CDP harness is the required method for viewport verification** (SWEB-26 criterion 6, and
+every four-viewport check from Sprint 6 onward). Drive Chrome over the DevTools Protocol and set
+the viewport with `Emulation.setDeviceMetricsOverride`. Node 22+ has a built-in `WebSocket`, so
+this needs no dependency. Two further reasons beyond the clamp below: `Page.captureScreenshot`
+with `captureBeyondViewport: true` gives a full-page capture that `--screenshot` cannot, and
+`Emulation.setEmulatedMedia` / `setScriptExecutionDisabled` let the same harness verify
+reduced-motion and no-JavaScript rendering.
+
+**Whatever harness is used, have it report the viewport it actually got** and compare that against
+the one requested. A clamp that is printed cannot pass unnoticed twice.
+
+> **A full-page capture of a page using the SWEB-28 reveal renders unrevealed content as BLANK.**
+> Elements below the viewport never intersect it, so they stay at `opacity: 0` — the page is fine
+> for a human who scrolls, but the screenshot is not evidence. **Capture full pages with
+> `prefers-reduced-motion: reduce` emulated**, which disables the reveal and doubles as the WCAG
+> check. Sprint 6 hit this and briefly read a correct page as broken.
+
 **`chrome --headless --window-size=W,H --screenshot` is not trustworthy below 500px on Windows.**
 Chrome clamps the window to a 500 CSS-px minimum. Asking for 375 produces a 375px-wide *image of a
 500px-wide layout* — a crop, which makes a correct page look broken. Sprint 5 lost time to this and
@@ -311,13 +331,17 @@ Confirm what actually rendered rather than trusting the flag:
 window.innerWidth; // reported 500 while the PNG was 375 wide
 ```
 
-For any viewport under 500px, drive Chrome through the DevTools Protocol and set the viewport with
-`Emulation.setDeviceMetricsOverride`, which is not subject to that floor. Node 22+ has a built-in
-`WebSocket`, so this needs no dependency. `Page.captureScreenshot` with
-`captureBeyondViewport: true` also gives a full-page capture, which `--screenshot` cannot.
+That is the second reason the CDP harness above is mandatory rather than merely preferred.
 
-Whatever harness is used, **have it report the viewport it actually got** and compare that against
-the one requested. A clamp that is printed cannot pass unnoticed twice.
+> **Git Bash mangles an argument that starts with `/`.** Passing a route like `/services/` to a
+> script converts it to a Windows path — `C:/Program Files/Git/services/` — and the navigation
+> fails with "Cannot navigate to invalid URL". Prefix the command with `MSYS_NO_PATHCONV=1`.
+> Note that doing so also stops `/c/Users/...` style paths being converted, so any `--directory`
+> or file argument in the same command must then be given in `C:/...` form. Sprint 6 lost a
+> measurement to exactly that combination: a server pointed at a non-existent directory returned
+> 404 for everything, and the run was recorded as a clean "CLS 0.0000" until the page title in the
+> report showed "Error response". **Have the harness print something that proves it loaded the
+> page you meant** — a title, a byte count, a page height.
 
 **Commit the lockfile with every dependency change.** `package.json` and `package-lock.json` are
 critical files — read before modifying, never remove an existing dependency, only append.
@@ -630,13 +654,26 @@ Two rules follow from SWEB-7, where three inherited claims turned out to be wron
 | The link count is not a constant | It was 2 through Sprint 2 and 5 from Sprint 3 — fonts and icons are crawlable | Re-measure after adding any page, image, font, or icon; never carry the old number forward (§8) |
 | DNS guidance often says "remove existing records" | Following it takes down company mail | Additive changes only (§5) |
 | `chrome --window-size` under 500px silently clamps | Windows enforces a 500 CSS-px minimum, so a 375px capture is a crop of a 500px layout — correct pages look broken | Use CDP `Emulation.setDeviceMetricsOverride`, and have the harness report the viewport it actually got (§6) |
-| The link checker cannot see an unlinked page | Nothing links to the content pages until cutover, so `links` passes having scanned only the placeholder | Check internal references by hand until nav exists (§6) |
+| ~~The link checker cannot see an unlinked page~~ | **Resolved 2026-08-11 (SWEB-30).** Nothing links to the content pages until cutover, so `links` passed having scanned only the placeholder | `scripts/check-links.mjs` checks every built page as an explicit start point; 59 links, negative-tested (§6) |
+| A full-page screenshot of a revealed page shows blanks | Elements below the viewport never intersect it, so they stay at `opacity: 0` — correct pages read as broken | Capture with `prefers-reduced-motion: reduce` emulated (§6) |
+| Git Bash converts an argument starting with `/` | `/services/` became `C:/Program Files/Git/services/`; with `MSYS_NO_PATHCONV=1` set, `/c/...` paths then stop converting instead | Set `MSYS_NO_PATHCONV=1` and give file paths as `C:/...`; make the harness print proof it loaded the right page (§6) |
+| `font-display: swap` reflows text after first paint | 0.0341 CLS on `/services/`; blocking the font drops it to 0 | Not fixable before cutover — `fonts.css` is in the placeholder's inlined bundle (`CLAUDE.md` Known Issues) |
 | `global.css` styles bare `body` and `footer` type selectors | Those declarations leak into every page; a class selector only wins for properties it declares, so the site footer inherited `position: fixed` and vanished | Reset them in `pages.css`; expect the block to go at cutover (`PROJECT_CONTEXT.md` §3) |
 | An unstyled `<a>` falls back to user-agent blue | Off-token and a contrast failure on the dark surface; shipped briefly on the 404 | Style every link explicitly (`PROJECT_CONTEXT.md` §7) |
 
 ---
 
-*Last updated: 2026-08-09 — Sprint 5 (SWEB-19 … SWEB-24, PR #10): §6 gained two standing
+*Last updated: 2026-08-11 — Sprint 6 (SWEB-25 … SWEB-30, PR #11): §6 records the **CDP harness as
+the required method** for viewport verification, with three reasons — the 500px window clamp, full-
+page capture, and media/JS emulation — and the rule that a harness must report the viewport it
+actually got. Added the caveat that a full-page capture of a page using the scroll reveal renders
+unrevealed content blank, so full pages are captured with reduced motion emulated. Added the Git
+Bash `MSYS_NO_PATHCONV` trap, which silently pointed a server at a non-existent directory and
+produced a clean-looking measurement of an error page. §6's link-checker note rewritten: the job now
+checks every built page (59 links, up from 5) and the negative test is recorded as a standing step.
+Four §10 rows added or marked resolved.*
+
+*Previously: 2026-08-09 — Sprint 5 (SWEB-19 … SWEB-24, PR #10): §6 gained two standing
 procedures. **Presenting a build for owner review** — content sprints now build, run
 `npm run preview -- --host`, and give the owner the exact routes plus any interaction that will
 not work, before any PR opens. **Screenshotting at a given viewport** — `chrome --window-size`

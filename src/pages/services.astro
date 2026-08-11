@@ -1,13 +1,17 @@
 ---
 /**
- * /services  (SWEB-20)
+ * /services  (SWEB-20, restyled SWEB-26 / 28 / 29)
  *
  * Two practice areas, six offerings. The page groups offerings under their practice so
- * a reader sees two practices rather than one list of six (criterion 3), and gives the
- * independence disclosure the strongest treatment on the page (criterion 4).
+ * a reader sees two practices rather than one list of six (SWEB-26 criterion 1), and
+ * gives the independence disclosure the strongest treatment on the page (criterion 5).
  *
- * All copy comes from the collections. The draft's warning markers and its "Notes for
- * the owner" section are apparatus for the owner and were not transcribed.
+ * NO COPY CHANGED IN SPRINT 6. The offerings became a card grid and the deliverables
+ * became structured items; every word is the same. All content stays in the HTML —
+ * nothing is hidden behind hover or click (criterion 2).
+ *
+ * The draft's warning markers and its "Notes for the owner" section are apparatus for
+ * the owner and were never transcribed.
  */
 import { getCollection, getEntry, render } from 'astro:content';
 import PageLayout from '../layouts/PageLayout.astro';
@@ -35,12 +39,27 @@ const practiceBlocks = await Promise.all(
     return { practice, PracticeIntro, items };
   }),
 );
+
+// SWEB-29: in-page anchors only. Every id below belongs to a section on this page.
+const markers = [
+  ...practiceBlocks.map(({ practice }) => ({
+    id: `practice-${practice.id}`,
+    label: practice.data.name,
+  })),
+  ...(independence ? [{ id: 'independence', label: 'Independence' }] : []),
+];
 ---
 
-<PageLayout title={title} seoTitle={seoTitle} seoDescription={seoDescription} intro={intro}>
+<PageLayout
+  title={title}
+  seoTitle={seoTitle}
+  seoDescription={seoDescription}
+  intro={intro}
+  markers={markers}
+>
   {
     practiceBlocks.map(({ practice, PracticeIntro, items }) => (
-      <section class="practice" aria-labelledby={`practice-${practice.id}`}>
+      <section class="practice reveal" aria-labelledby={`practice-${practice.id}`}>
         <p class="eyebrow">Practice area {practice.data.order === 1 ? 'one' : 'two'}</p>
         <h2 class="practice__name" id={`practice-${practice.id}`}>
           {practice.data.name}
@@ -50,47 +69,60 @@ const practiceBlocks = await Promise.all(
           <PracticeIntro />
         </div>
 
-        {items.map(({ data, Body }) => (
-          <article class="offering">
-            <p class="offering__number">{String(data.order).padStart(2, '0')}</p>
-            <h3 class="offering__title">{data.title}</h3>
+        <div class="offerings">
+          {items.map(({ data, Body }) => (
+            <article class="offering reveal">
+              <p class="offering__number">{String(data.order).padStart(2, '0')}</p>
+              <h3 class="offering__title">{data.title}</h3>
 
-            <div class="offering__body prose">
-              <Body />
-            </div>
+              <div class="offering__body prose">
+                <Body />
+              </div>
 
-            <p class="offering__subhead">What you get</p>
-            <ul class="offering__deliverables">
-              {data.deliverables.map((item) => (
-                <li>{item}</li>
-              ))}
-            </ul>
+              <p class="offering__subhead">What you get</p>
+              <ul class="offering__deliverables">
+                {data.deliverables.map((item) => (
+                  <li>{item}</li>
+                ))}
+              </ul>
 
-            <p class="offering__whofor">
-              <strong>Who it's for</strong> — {data.whoFor}
-            </p>
-
-            {data.note && (
-              <p class="offering__note">
-                <strong>Note:</strong> {data.note}
+              <p class="offering__whofor">
+                <strong>Who it's for</strong> — {data.whoFor}
               </p>
-            )}
-          </article>
-        ))}
+
+              {data.note && (
+                <p class="offering__note">
+                  <strong>Note:</strong> {data.note}
+                </p>
+              )}
+            </article>
+          ))}
+        </div>
       </section>
     ))
   }
 
   {
     independence && (
-      <section class="independence" aria-labelledby="independence">
-        <h2 class="independence__heading" id="independence">
-          {independence.heading}
-        </h2>
-        <div class="independence__body">
-          {independence.paragraphs.map((p) => (
-            <p>{p}</p>
-          ))}
+      <section class="independence reveal" aria-labelledby="independence-heading" id="independence">
+        {/* The mark as texture. Decorative, so alt is empty and it is aria-hidden. */}
+        <img
+          class="independence__motif"
+          src="/mark-spiral.png"
+          alt=""
+          aria-hidden="true"
+          width="192"
+          height="95"
+        />
+        <div class="independence__inner">
+          <h2 class="independence__heading" id="independence-heading">
+            {independence.heading}
+          </h2>
+          <div class="independence__body">
+            {independence.paragraphs.map((p) => (
+              <p>{p}</p>
+            ))}
+          </div>
         </div>
       </section>
     )
@@ -98,7 +130,7 @@ const practiceBlocks = await Promise.all(
 
   {
     cta && (
-      <section class="cta">
+      <section class="cta reveal">
         {cta.heading && <h2 class="cta__heading">{cta.heading}</h2>}
         <p class="cta__body">{cta.body}</p>
         <p class="cta__label">{cta.label}</p>

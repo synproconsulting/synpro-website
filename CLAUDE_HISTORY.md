@@ -628,4 +628,78 @@ them and `robots.txt` still disallows every crawler (AD-10). **The site is not p
 
 ---
 
-*Next entry: Sprint 6.*
+## Sprint 6 — Visual Design and Page Rhythm  ·  2026-08-11
+
+**PRs merged:** #11
+**Fix version / native sprint:** 11103 / 1076
+**Jira keys:** SWEB-25 … SWEB-30
+**Blocking CI checks at close:** `build`, `format`, `links`
+**Live site state at close:** **the front page is unchanged for any visitor.** `index.astro` was
+not modified, `dist/index.html` is byte-identical at 8,805 bytes and SHA-256 `de94c224…`, and it
+renders with **0 differing pixels** at all four viewports. The five content pages and the 404 are
+redesigned — hierarchy, cards, a gradient field, and motion — but remain reachable only by typing
+their URL, with no navigation and `robots.txt` still disallowing every crawler (AD-10). **The site
+is still not published.** No copy changed anywhere.
+
+### What landed
+- **SWEB-25** — the interior type scale separated from the hero scale. Content `h1` 51.2px → 33.3px
+  at 1280; header mark 96px → 136px wide; wordmark 13.1px letterspaced → 17.6px bold. `--text-h1`
+  is now reserved for `/home-preview/`.
+- **SWEB-26** — the six offerings as a two-column card grid inside their two practice areas,
+  deliverables as geometric structured items, the sector strip as a tile grid, and the independence
+  disclosure as a distinguished panel with the spiral as a low-opacity motif. No stock photography;
+  nothing hidden behind interaction.
+- **SWEB-27** — the placeholder's blue-to-green gradient extended across the content pages as a
+  document-length scrolling field with two brand glows and a blueprint grid, all in tokens.
+- **SWEB-28** — scroll-triggered reveal via `IntersectionObserver`, once per element, gated on both
+  `html.js` and `prefers-reduced-motion`.
+- **SWEB-29** — in-page section markers on `/services/` and `/approach/`. Every href starts with
+  `#`; nothing links to another page.
+- **SWEB-30** — the `links` job rebuilt around an explicit route list derived from the build.
+  **5 → 59 links across 7 routes**, negative-tested, still blocking.
+
+### ADs recorded
+- None. AD-10 governed the sprint and held; AD-6 is the reason SWEB-30 kept the job blocking.
+
+### Lessons
+1. **A token is not free just because nothing uses it.** Adding the Sprint 6 tokens to `tokens.css`
+   grew `dist/index.html` from 8,805 to 9,701 bytes with `index.astro` untouched — because
+   `inlineStylesheets: 'always'` inlines the whole bundle and `tokens.css` is in the placeholder's.
+   The fix was a second token layer, `tokens-content.css`, imported only by `PageLayout`. **Under
+   inlined CSS, "unused" still ships.**
+2. **The sprint's own feature broke the sprint's own verification.** A full-page screenshot of a
+   page using the scroll reveal renders everything below the fold blank, because those elements
+   never intersect the viewport. A correct page read as broken. Full pages are now captured with
+   reduced motion emulated — which disables the reveal *and* doubles as the WCAG check. **When you
+   add a behaviour that depends on the viewport, check what it does to the tools that look at the
+   page.**
+3. **Contrast against a gradient has to be measured against pixels, not tokens.** The nominal
+   `--surface-base` is not what sits behind text once a field, two glows and a grid texture are
+   composited over it. Re-rendering each page with all text made transparent, then sampling the
+   real background at each element's own box, gave the actual numbers — worst pairing 5.71:1, and
+   several sampled backgrounds were visibly lighter than the token would have suggested. **A ratio
+   computed against a value you did not render is a guess.**
+4. **Bisect before believing the obvious cause.** `/services/` measured 0.0341 CLS and the scroll
+   reveal was the natural suspect. It was not: setting the rise to zero changed nothing, removing a
+   grid `height: 100%` changed nothing, and **blocking the webfont dropped it to 0.0000**. The
+   cause is `font-display: swap` reflow — Sprint 3's policy, which the new card grid merely made
+   visible to the metric. Left unfixed on purpose, because both remedies mean editing `fonts.css`,
+   which is inlined into the placeholder's bundle.
+5. **A pipeline hides the exit code you are testing.** The SWEB-30 negative test first reported
+   "exit code 0" for a build with a deliberately broken link — `npm run links | tail` returns
+   `tail`'s status, not npm's. Re-run capturing the command's own status, it exits 1 and names the
+   referring page. **A guard verified through a pipe is not verified.**
+6. **A harness that cannot prove what it loaded will eventually measure the wrong thing.** Setting
+   `MSYS_NO_PATHCONV=1` to stop Git Bash mangling `/services/` also stopped `/c/Users/...` being
+   converted, so a server was pointed at a directory that does not exist and 404'd everything. The
+   run recorded a clean "CLS 0.0000" — of an error page. It was caught only because the report
+   printed `document.title`. **Print something that identifies the page: a title, a height, a byte
+   count.**
+7. **Turning prose into a grid is not a purely visual change.** The sector sentence became tiles
+   with every word preserved except the serial "and" before the final item, which a tile grid has
+   nowhere to put — verified programmatically at 26 of 27 words rendered, none added. Recorded and
+   flagged rather than waved through, because the sprint's constraint was that no copy changes.
+
+---
+
+*Next entry: Sprint 7.*

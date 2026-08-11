@@ -115,9 +115,17 @@ jobs:
         with:
           name: dist
           path: dist
-      # linkinator serves ./dist over 127.0.0.1 and crawls it. .linkinatorrc.json skips
-      # absolute external URLs, so a Google Fonts outage can never fail a blocking check
-      # while a genuinely broken internal link still does.
+      # scripts/check-links.mjs serves ./dist over 127.0.0.1 and checks EVERY built page
+      # as an explicit starting point (SWEB-30). Crawling outward from `/` alone reached
+      # only the placeholder, because nothing links to the content pages until the
+      # cutover PR adds navigation — it passed having scanned 5 links and could not have
+      # failed on a broken reference anywhere else.
+      #
+      # The route list is derived from dist/ at run time, so a page added later is
+      # covered the day it exists. .linkinatorrc.json still skips absolute external URLs,
+      # so a third-party outage can never fail a blocking check while a genuinely broken
+      # internal link still does. Negative-tested in SWEB-30: a deliberately broken
+      # reference exits 1 and names the referring page.
       - run: npm run links
 
   # ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 ---
 /**
- * Shared shell for every content page  (SWEB-19)
+ * Shared shell for every content page  (SWEB-19, extended SWEB-25 / 28 / 29)
  *
  * Complements BaseLayout rather than replacing it: BaseLayout still owns <head> — the
  * canonical URL, Open Graph tags, icons, and the font preload — so metadata stays in
@@ -9,12 +9,23 @@
  * pages.css is imported HERE and nowhere else. index.astro does not use this layout,
  * so the placeholder's CSS bundle is untouched and its output stays byte-identical.
  *
- * There is deliberately NO navigation. Nav is cutover-PR scope (AD-10) — the site is
- * still crawler-locked and the front page is still the placeholder, so a menu would
- * link a visitor into pages that are not meant to be found yet.
+ * There is deliberately NO SITE NAVIGATION. Nav is cutover-PR scope (AD-10). The
+ * optional `markers` rail is in-page anchors only — every href starts with '#', and
+ * nothing links to another page.
  */
 import BaseLayout from './BaseLayout.astro';
+// Import order is cascade order. tokens-content.css defines the Sprint 6 custom
+// properties; pages.css consumes them. Both are imported HERE and nowhere else, which
+// is what keeps them out of the placeholder's inlined bundle — see the header note in
+// tokens-content.css for why that matters.
+import '../styles/tokens-content.css';
 import '../styles/pages.css';
+
+export interface SectionMarker {
+  /** Element id on this page. Rendered as href="#id" — never a cross-page link. */
+  id: string;
+  label: string;
+}
 
 interface Props {
   /** <title> — per-page, drafted in SWEB-24. */
@@ -24,13 +35,26 @@ interface Props {
   title?: string;
   /** Lead paragraphs under the H1. */
   intro?: string[];
+  /** In-page section markers for long pages (SWEB-29). */
+  markers?: SectionMarker[];
 }
 
-const { seoTitle, seoDescription, title, intro } = Astro.props;
+const { seoTitle, seoDescription, title, intro, markers } = Astro.props;
 const year = new Date().getFullYear();
 ---
 
 <BaseLayout title={seoTitle} description={seoDescription} bodyClass="page">
+  {
+    /*
+    Marks the document as scripted BEFORE first paint. The reveal's hidden state is
+    gated on `html.js`, so with JavaScript disabled the class never appears, the rule
+    never matches, and nothing is ever hidden by CSS alone (SWEB-28 criterion 2).
+  */
+  }
+  <script slot="head" is:inline>
+    document.documentElement.classList.add('js');
+  </script>
+
   <a class="skip-link" href="#main">Skip to content</a>
 
   <header class="site-header">
@@ -42,11 +66,27 @@ const year = new Date().getFullYear();
     </div>
   </header>
 
+  {
+    markers && markers.length > 0 && (
+      <nav class="section-markers" aria-label="On this page">
+        <ol>
+          {markers.map((m) => (
+            <li>
+              <a href={`#${m.id}`}>
+                <span class="section-markers__label">{m.label}</span>
+              </a>
+            </li>
+          ))}
+        </ol>
+      </nav>
+    )
+  }
+
   <main class="page-main" id="main">
     <div class="container">
       {
         title && (
-          <div class="page-head">
+          <div class="page-head reveal">
             <h1 class="page-title">{title}</h1>
             {intro && (
               <div class="page-intro">
@@ -74,4 +114,96 @@ const year = new Date().getFullYear();
       </div>
     </div>
   </footer>
+
+  {
+    /*
+    `is:inline` is load-bearing. Astro would otherwise hoist this into a deferred module,
+    which runs AFTER first paint — and anything already hidden would flash empty before
+    being revealed. Inline at the end of <body> it runs before the initial paint, so
+    content in view at load is marked visible without ever animating (criterion 4).
+  */
+  }
+  <script is:inline>
+    (function () {
+      var reduce =
+        window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      function viewportH() {
+        return window.innerHeight || document.documentElement.clientHeight;
+      }
+
+      // Containers that want each of their children revealed in turn, used by the
+      // Markdown-driven pages where per-section classes cannot be authored.
+      var groups = document.querySelectorAll('[data-reveal-children]');
+      for (var g = 0; g < groups.length; g++) {
+        var kids = groups[g].children;
+        for (var k = 0; k < kids.length; k++) kids[k].classList.add('reveal');
+      }
+
+      var els = document.querySelectorAll('.reveal');
+      var i;
+
+      // Reduced motion, or no observer support: show everything and stop. Nothing is
+      // left hidden under any circumstances.
+      if (reduce || !('IntersectionObserver' in window)) {
+        for (i = 0; i < els.length; i++) els[i].classList.add('is-visible');
+      } else {
+        var pending = [];
+        for (i = 0; i < els.length; i++) {
+          // Already on screen at load: reveal immediately, with no animation to flash.
+          if (els[i].getBoundingClientRect().top < viewportH()) els[i].classList.add('is-visible');
+          else pending.push(els[i]);
+        }
+
+        var io = new IntersectionObserver(
+          function (entries) {
+            for (var e = 0; e < entries.length; e++) {
+              if (entries[e].isIntersecting) {
+                entries[e].target.classList.add('is-visible');
+                // Once per element. Scrolling back up must not re-animate (criterion 5).
+                io.unobserve(entries[e].target);
+              }
+            }
+          },
+          { rootMargin: '0px 0px -8% 0px', threshold: 0.04 },
+        );
+        for (i = 0; i < pending.length; i++) io.observe(pending[i]);
+      }
+
+      // Section markers: reflect the section currently in view. Enhancement only —
+      // the anchors work without it.
+      var rail = document.querySelector('.section-markers');
+      if (rail && 'IntersectionObserver' in window) {
+        var links = rail.querySelectorAll('a');
+        var targets = [];
+        for (i = 0; i < links.length; i++) {
+          var t = document.getElementById(links[i].getAttribute('href').slice(1));
+          if (t) targets.push({ el: t, link: links[i] });
+        }
+        var mark = function (link) {
+          for (var n = 0; n < links.length; n++) links[n].removeAttribute('aria-current');
+          if (link) link.setAttribute('aria-current', 'true');
+        };
+        var spy = new IntersectionObserver(
+          function () {
+            var line = viewportH() * 0.4;
+            var best = null;
+            var bestGap = Infinity;
+            for (var n = 0; n < targets.length; n++) {
+              var top = targets[n].el.getBoundingClientRect().top;
+              // The section whose start is nearest above an imaginary line 40% down
+              // the viewport — the one the reader is actually in.
+              if (top <= line && line - top < bestGap) {
+                bestGap = line - top;
+                best = targets[n].link;
+              }
+            }
+            mark(best);
+          },
+          { rootMargin: '0px', threshold: [0, 0.25, 0.5, 0.75, 1] },
+        );
+        for (i = 0; i < targets.length; i++) spy.observe(targets[i].el);
+      }
+    })();
+  </script>
 </BaseLayout>

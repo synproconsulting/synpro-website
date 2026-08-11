@@ -76,6 +76,23 @@ const pages = defineCollection({
         }),
       )
       .optional(),
+    /**
+     * The sector strip as a tile grid (SWEB-26 criterion 4).
+     *
+     * PRESENTATION ONLY — no copy changed. This was one sentence in Sprint 5; it is
+     * split here into its lead-in, the sectors it lists, and its geographic tail, so
+     * the sectors can be scanned rather than read. Every word is preserved except the
+     * list's serial conjunction "and" before the final sector, which a tile grid has
+     * nowhere to put.
+     */
+    sectorBlock: z
+      .object({
+        heading: z.string(),
+        lead: z.string(),
+        tiles: z.array(z.string()),
+        tail: z.string(),
+      })
+      .optional(),
 
     // ---- Services only (SWEB-20) ------------------------------------------
     /** The independence disclosure. The most consequential content on the page. */

@@ -16,7 +16,7 @@ const { Content } = await render(page);
 ---
 
 <PageLayout seoTitle={seoTitle} seoDescription={seoDescription}>
-  <div class="page-head">
+  <div class="page-head reveal">
     <div class="about-head">
       <div class="portrait">
         <picture>
@@ -46,7 +46,8 @@ const { Content } = await render(page);
     </div>
   </div>
 
-  <div class="prose">
+  {/* Each Markdown section arrives in turn — see the note in approach.astro. */}
+  <div class="prose" data-reveal-children>
     <Content />
   </div>
 </PageLayout>

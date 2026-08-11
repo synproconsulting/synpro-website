@@ -1,5 +1,5 @@
 /**
- * Content page styles  (SWEB-19 … SWEB-24)
+ * Content page styles  (SWEB-19 … SWEB-29)
  *
  * Imported by PageLayout.astro ONLY — never by BaseLayout. index.astro does not use
  * PageLayout, so none of this reaches the placeholder's CSS bundle and its output stays
@@ -11,8 +11,8 @@
  * numbers inside @media conditions, which custom properties cannot express — they are
  * kept in step with --bp-* by hand, as PROJECT_CONTEXT.md §7 requires.
  *
- * LONG-FORM READING ON A DARK SURFACE is the case Sprint 3 never tested. The choices
- * that address it are marked "long-form:" below so they can be found and revisited.
+ * SPRINT 6 changed presentation only. No copy changed. The type scale, the card grid,
+ * the background field, the reveal, and the section markers all live here.
  */
 
 /* ------------------------------------------------------------------ page body
@@ -20,6 +20,11 @@
  * `height: 100%`, `overflow: hidden`. On a scrolling page `overflow: hidden` alone
  * would make the content unreachable. Overridden here at higher specificity rather
  * than by editing global.css, which would change the placeholder's bundle.
+ *
+ * The background is the SWEB-27 field: a document-length blue-to-green gradient with
+ * two soft brand glows and a blueprint grid over it. These SCROLL with the document
+ * (no `background-attachment: fixed`), which is what makes moving down a page move
+ * through the palette.
  */
 body.page {
   display: block;
@@ -28,22 +33,11 @@ body.page {
   overflow: visible;
   text-align: left;
   padding: 0;
-  background: var(--surface-base);
+  background-color: var(--surface-base);
+  background-image: var(--bg-texture), var(--bg-glow-blue), var(--bg-glow-green), var(--bg-field);
 }
 
-/* The placeholder's radial glow, pinned to the viewport so it reads as a light
- * source behind the page rather than stretching down a long document. */
-body.page::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: var(--ph-bg-gradient);
-  opacity: var(--ph-tagline-opacity);
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* The shell elements are lifted above the fixed glow. Named individually rather than
+/* The shell elements sit above any decorative layer. Named individually rather than
  * with `body.page > *`, which would also match .skip-link and override its
  * `position: absolute` — that bug rendered the skip link permanently visible at the top
  * of every page instead of only on focus. */
@@ -78,7 +72,7 @@ body.page > footer {
   position: absolute;
   left: var(--space-4);
   top: var(--space-4);
-  z-index: 2;
+  z-index: 3;
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
   background: var(--on-dark-accent);
@@ -102,31 +96,32 @@ body.page > footer {
 }
 
 .site-header {
-  padding-block: var(--space-5);
+  padding-block: var(--space-6);
 }
 
-/* No navigation menu — nav is cutover-PR scope (SWEB-19 criterion 5). The mark is
- * deliberately not a link: there is nowhere to link to while the front page is still
- * the placeholder. */
+/* No navigation menu — site nav is cutover-PR scope. The mark is deliberately not a
+ * link: there is nowhere to link to while the front page is still the placeholder. */
 .site-header__mark {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
-/* The spiral alone, not the full lockup. The lockup is stacked — spiral over "SynPro"
- * over "CONSULTING" — and at header size all three collapse into mush, the same trap
- * SWEB-14 hit with the favicon. The wordmark is set in type beside it instead. */
+/* SWEB-25: the lockup is enlarged so the brand outranks the page title. The spiral
+ * alone, not the full lockup — the lockup is stacked (spiral over "SynPro" over
+ * "CONSULTING") and at header size all three collapse into mush, the same trap SWEB-14
+ * hit with the favicon. The wordmark is set in type beside it. */
 .site-header__mark img {
-  width: calc(var(--space-8) * 1.5);
+  width: var(--brand-mark-width);
   height: auto;
 }
 
+/* --tracking-normal, not --tracking-wide: the wide tracking was spacing the wordmark
+ * into a caption rather than a brand. */
 .site-header__name {
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
+  font-size: var(--text-brand);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-normal);
   color: var(--on-dark-text);
 }
 
@@ -140,8 +135,10 @@ body.page > footer {
   margin-bottom: var(--space-8);
 }
 
+/* SWEB-25: --text-page-title, NOT --text-h1. The hero scale is reserved for the
+ * homepage; an interior page title is a different thing. */
 .page-title {
-  font-size: var(--text-h1);
+  font-size: var(--text-page-title);
   font-weight: var(--weight-bold);
   line-height: var(--leading-tight);
   letter-spacing: var(--tracking-tight);
@@ -183,7 +180,7 @@ body.page > footer {
 
 .prose h2 {
   margin-top: var(--space-8);
-  font-size: var(--text-h2);
+  font-size: var(--text-section);
   font-weight: var(--weight-semibold);
   line-height: var(--leading-snug);
   letter-spacing: var(--tracking-tight);
@@ -192,7 +189,7 @@ body.page > footer {
 
 .prose h3 {
   margin-top: var(--space-7);
-  font-size: var(--text-h3);
+  font-size: var(--text-card-title);
   font-weight: var(--weight-semibold);
   line-height: var(--leading-snug);
   color: var(--on-dark-text);
@@ -234,7 +231,7 @@ body.page > footer {
 }
 
 .section__heading {
-  font-size: var(--text-h2);
+  font-size: var(--text-section);
   font-weight: var(--weight-semibold);
   line-height: var(--leading-snug);
   letter-spacing: var(--tracking-tight);
@@ -250,9 +247,9 @@ body.page > footer {
 }
 
 /* ------------------------------------------------------------------ services
- * SWEB-20 criterion 3: a reader must see two practices, not one list of six. The
- * practice is a banded region with its own rule and eyebrow; the offerings sit inside
- * it, indented on wide viewports so the grouping survives scrolling.
+ * SWEB-26 criterion 1: a reader must see two practices, not one list of six. The
+ * practice is a banded region with its own accent rule and eyebrow; its offerings sit
+ * inside it as a card grid, so the grouping survives scrolling.
  */
 .practice {
   margin-top: var(--space-9);
@@ -261,7 +258,7 @@ body.page > footer {
 }
 
 .practice__name {
-  font-size: var(--text-h2);
+  font-size: var(--text-section);
   font-weight: var(--weight-bold);
   line-height: var(--leading-tight);
   letter-spacing: var(--tracking-tight);
@@ -283,9 +280,33 @@ body.page > footer {
   margin-top: var(--space-4);
 }
 
+/* The card grid. One column on narrow viewports, two from --bp-lg. Three offerings per
+ * practice means the second row carries one card; that is deliberate and reads as a
+ * grid rather than a list. */
+/* Grid items stretch by default, which is what makes cards in a row equal height and
+ * lets `margin-top: auto` push the who-it's-for line to the bottom. Do NOT add
+ * `align-items: start` here and `height: 100%` on the card: that pair resolves a
+ * percentage height against an indefinite track and costs a second layout pass —
+ * measured at 0.034 CLS on this page before it was removed. */
+.offerings {
+  margin-top: var(--space-7);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-5);
+}
+
+@media (min-width: 64rem) {
+  .offerings {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-6);
+  }
+}
+
 .offering {
-  margin-top: var(--space-8);
+  display: flex;
+  flex-direction: column;
   padding: var(--space-6);
+  border: var(--ph-divider-height) solid var(--surface-glow);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
 }
@@ -299,77 +320,118 @@ body.page > footer {
 
 .offering__title {
   margin-top: var(--space-2);
-  font-size: var(--text-h3);
+  font-size: var(--text-card-title);
   font-weight: var(--weight-semibold);
   line-height: var(--leading-snug);
   color: var(--on-dark-text);
 }
 
 .offering__body {
-  margin-top: var(--space-5);
+  margin-top: var(--space-4);
+}
+
+.offering__body p {
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
 }
 
 .offering__subhead {
   margin-top: var(--space-6);
-  font-size: var(--text-base);
+  padding-top: var(--space-4);
+  border-top: var(--ph-divider-height) solid var(--surface-glow);
+  font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-normal);
-  color: var(--on-dark-text);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--on-dark-text-muted);
 }
 
+/* SWEB-26 criterion 3: structured items, not default bullets. The marker is a rotated
+ * square in the accent — geometric, and it reads as a spec sheet rather than prose. */
 .offering__deliverables {
   margin-top: var(--space-4);
-  max-width: var(--content-max);
-  padding-left: var(--space-5);
-  display: flex;
-  flex-direction: column;
+  list-style: none;
+  padding: 0;
+  display: grid;
   gap: var(--space-3);
 }
 
 .offering__deliverables li {
+  position: relative;
+  padding-left: var(--space-5);
   font-size: var(--text-base);
   line-height: var(--leading-normal);
   color: var(--on-dark-text);
 }
 
-.offering__deliverables li::marker {
-  color: var(--on-dark-accent);
+.offering__deliverables li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: var(--space-2);
+  height: var(--space-2);
+  background: var(--on-dark-accent);
+  transform: rotate(45deg);
 }
 
-.offering__whofor,
-.offering__note {
-  margin-top: var(--space-5);
-  max-width: var(--content-max);
+/* Pushed to the bottom of the card so the who-it's-for line aligns across a row. */
+.offering__whofor {
+  margin-top: auto;
+  padding-top: var(--space-5);
   font-size: var(--text-base);
   line-height: var(--leading-normal);
   color: var(--on-dark-text-muted);
 }
 
 .offering__note {
+  margin-top: var(--space-4);
   padding-left: var(--space-4);
   border-left: var(--radius-sm) solid var(--on-dark-text-muted);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--on-dark-text-muted);
 }
 
-/* SWEB-20 criterion 4: the independence disclosure is the most consequential content
- * on the page and is given the accent border, the raised surface, and more space than
- * any offering. */
+/* SWEB-26 criterion 5: the independence disclosure is the most consequential content on
+ * the site and is treated as a distinguished panel — an accent spine, the raised
+ * surface, larger type than any card, and the spiral set as a low-opacity motif. */
 .independence {
+  position: relative;
+  overflow: hidden;
   margin-top: var(--space-9);
   padding: var(--space-7) var(--space-6);
-  border: var(--radius-sm) solid var(--on-dark-accent);
+  border-left: var(--space-1) solid var(--on-dark-accent);
   border-radius: var(--radius-lg);
   background: var(--surface-glow);
 }
 
+/* The mark as texture, not decoration competing with the words. */
+.independence__motif {
+  position: absolute;
+  right: calc(var(--space-6) * -1);
+  bottom: calc(var(--space-6) * -1);
+  width: calc(var(--space-10) * 2);
+  height: auto;
+  opacity: var(--ph-aura-opacity);
+  filter: grayscale(1);
+  pointer-events: none;
+}
+
+.independence__inner {
+  position: relative;
+  z-index: 1;
+  max-width: var(--content-max);
+}
+
 .independence__heading {
-  font-size: var(--text-h3);
+  font-size: var(--text-section);
   font-weight: var(--weight-bold);
   line-height: var(--leading-snug);
   color: var(--on-dark-accent);
 }
 
 .independence__body {
-  max-width: var(--content-max);
   margin-top: var(--space-5);
   display: flex;
   flex-direction: column;
@@ -423,7 +485,9 @@ body.page > footer {
   }
 }
 
-/* ------------------------------------------------------------------ home */
+/* ------------------------------------------------------------------ home
+ * The hero KEEPS --text-h1. SWEB-25 reserved that scale for exactly this.
+ */
 .hero {
   padding-block: var(--space-8) var(--space-7);
 }
@@ -468,7 +532,7 @@ body.page > footer {
 }
 
 .credibility__figure {
-  font-size: var(--text-h4);
+  font-size: var(--text-card-title);
   font-weight: var(--weight-bold);
   line-height: var(--leading-tight);
   color: var(--on-dark-accent);
@@ -498,12 +562,13 @@ body.page > footer {
  * rendered as muted text rather than as an affordance that does nothing. */
 .card {
   padding: var(--space-6);
+  border: var(--ph-divider-height) solid var(--surface-glow);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
 }
 
 .card__title {
-  font-size: var(--text-h4);
+  font-size: var(--text-card-title);
   font-weight: var(--weight-semibold);
   line-height: var(--leading-snug);
   color: var(--on-dark-text);
@@ -540,17 +605,58 @@ body.page > footer {
   margin-top: var(--space-5);
 }
 
+/* SWEB-26 criterion 4: the sector strip as a tile grid. The words are unchanged — the
+ * sentence was split into its lead-in, the sectors it lists, and its geographic tail. */
+.sector-block {
+  margin-top: var(--space-9);
+}
+
+.sector-block__lead {
+  max-width: var(--content-max);
+  margin-top: var(--space-4);
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+  color: var(--on-dark-text-muted);
+}
+
+.tiles {
+  margin-top: var(--space-5);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--space-10) * 1.6), 1fr));
+  gap: var(--space-4);
+}
+
+.tile {
+  padding: var(--space-5) var(--space-4);
+  border: var(--ph-divider-height) solid var(--surface-glow);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-snug);
+  color: var(--on-dark-text);
+}
+
+.sector-block__tail {
+  max-width: var(--content-max);
+  margin-top: var(--space-5);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--on-dark-text-muted);
+}
+
 /* ------------------------------------------------------------------ cta */
 .cta {
   margin-top: var(--space-9);
   padding: var(--space-7) var(--space-6);
+  border: var(--ph-divider-height) solid var(--surface-glow);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
 }
 
 .cta__heading {
   max-width: var(--content-max);
-  font-size: var(--text-h3);
+  font-size: var(--text-section);
   font-weight: var(--weight-semibold);
   line-height: var(--leading-snug);
   color: var(--on-dark-text);
@@ -593,6 +699,7 @@ body.page > footer {
 
 .form {
   padding: var(--space-6);
+  border: var(--ph-divider-height) solid var(--surface-glow);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
   display: flex;
@@ -612,7 +719,12 @@ body.page > footer {
   color: var(--on-dark-text);
 }
 
+/* The leading space is applied here rather than in the markup. Prettier reflowed this
+ * label onto separate lines in Sprint 5 and Astro collapsed the resulting whitespace,
+ * rendering "organisation(optional)". Fixing it in CSS keeps the markup's text nodes
+ * untouched — this sprint changes presentation only. */
 .field__optional {
+  margin-left: var(--space-1);
   font-weight: var(--weight-regular);
   color: var(--on-dark-text-muted);
 }
@@ -724,11 +836,11 @@ select.field__control {
   color: var(--on-dark-text);
 }
 
-/* The aside is secondary to the form (D6). Its prose headings are stepped down from
- * --text-h2 so they read as supporting notes rather than competing with it. */
+/* The aside is secondary to the form (D6). Its prose headings are stepped down so they
+ * read as supporting notes rather than competing with it. */
 .contact-aside .prose h2 {
   margin-top: var(--space-6);
-  font-size: var(--text-h4);
+  font-size: var(--text-card-title);
 }
 
 .contact-aside .prose p {
@@ -754,7 +866,7 @@ select.field__control {
 }
 
 .notfound__code {
-  font-size: var(--text-h2);
+  font-size: var(--text-section);
   font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-wide);
   color: var(--on-dark-accent);
@@ -808,4 +920,137 @@ select.field__control {
 
 .site-footer a:hover {
   color: var(--on-dark-accent);
+}
+
+/* ------------------------------------------------------------------ reveal
+ * SWEB-28. Sections fade and rise as they enter the viewport.
+ *
+ * THREE THINGS MAKE THIS SAFE, and all three are load-bearing:
+ *
+ *   1. The hidden state is gated on `html.js`, a class an inline script in <head> adds.
+ *      With JavaScript disabled the class never appears, the rule never matches, and
+ *      every section is visible. Content is never hidden by CSS alone.
+ *   2. It is gated on `prefers-reduced-motion: no-preference`. Under `reduce` the rule
+ *      does not exist, so there is no animation AND no hidden state — WCAG 2.2 AA.
+ *   3. Only opacity and transform animate. Neither affects layout, so CLS is 0.
+ *
+ * Elements already in the viewport at load are marked visible synchronously by the
+ * end-of-body script, before first paint, so there is no flash of empty page.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  html.js .reveal {
+    transition:
+      opacity var(--reveal-duration) var(--ease-out-soft),
+      transform var(--reveal-duration) var(--ease-out-soft);
+  }
+
+  html.js .reveal:not(.is-visible) {
+    opacity: 0;
+    transform: translateY(var(--reveal-rise));
+  }
+}
+
+/* ------------------------------------------------------------------ section markers
+ * SWEB-29. IN-PAGE ANCHORS ONLY — every href here starts with '#'. This is not site
+ * navigation and adds no link that leaves the page; AD-10 still holds.
+ *
+ * Shown only from --bp-xl, where the 1200px container leaves gutter to spare. Below
+ * that it is display:none — there is no room beside the content, and overlaying it
+ * would cover the copy it exists to index.
+ */
+.section-markers {
+  display: none;
+}
+
+@media (min-width: 80rem) {
+  .section-markers {
+    display: block;
+    position: fixed;
+    right: var(--space-5);
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+  }
+}
+
+.section-markers ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+
+.section-markers a {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-normal);
+  color: var(--on-dark-text-muted);
+  text-decoration: none;
+  text-align: right;
+}
+
+/* At --bp-xl the 1200px container leaves only ~40px of gutter — not enough for a text
+ * label, which overlapped the copy it exists to index. So the label is screen-reader
+ * only until there is genuine room for it, and the rule alone carries the position.
+ * The link keeps its accessible name either way. */
+.section-markers__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (min-width: 100rem) {
+  .section-markers__label {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+  }
+}
+
+/* The rule is the marker; it lengthens for the section you are in.
+ *
+ * The length change is a transform, NOT a width. Animating width relaid out the rail
+ * and registered as a layout shift — small (0.00003 CLS) but real, and SWEB-28 asks for
+ * none. `scaleX` is composited and moves no layout box. */
+.section-markers a::after {
+  content: '';
+  flex: none;
+  width: var(--space-6);
+  height: var(--ph-divider-height);
+  background: currentColor;
+  transform: scaleX(0.66);
+  transform-origin: right center;
+  transition: transform var(--duration-fast) var(--ease-out-soft);
+}
+
+.section-markers a:hover,
+.section-markers a:focus-visible {
+  color: var(--on-dark-text);
+}
+
+.section-markers a[aria-current='true'] {
+  color: var(--on-dark-accent);
+}
+
+.section-markers a[aria-current='true']::after {
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-markers a::after {
+    transition: none;
+  }
 }

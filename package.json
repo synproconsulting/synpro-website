@@ -10,7 +10,7 @@
     "preview": "astro preview",
     "format": "prettier --write \"src/**/*.{astro,css,js,mjs,ts}\" \"*.{mjs,json}\"",
     "format:check": "prettier --check \"src/**/*.{astro,css,js,mjs,ts}\" \"*.{mjs,json}\"",
-    "links": "linkinator ./dist --config .linkinatorrc.json"
+    "links": "node scripts/check-links.mjs"
   },
   "dependencies": {
     "astro": "7.2.0"
