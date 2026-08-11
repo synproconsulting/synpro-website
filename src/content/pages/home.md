@@ -43,12 +43,21 @@ sections:
         reliable defence is an advisor with nothing to gain either way.
       - That's the whole reason SynPro exists.
     ctaLabel: How I work →
-  - heading: Experience across sectors
-    paragraphs:
-      - >-
-        Career experience across energy and oil and gas, financial services, semiconductor and
-        technology, manufacturing, utilities, FMCG, and government — in the United States, the United
-        Kingdom, and internationally.
+# Was one sentence in Sprint 5; split for the tile grid (SWEB-26). No word changed —
+# only the serial "and" before the final sector is not rendered, having nowhere to sit
+# in a grid.
+sectorBlock:
+  heading: Experience across sectors
+  lead: Career experience across
+  tiles:
+    - energy and oil and gas
+    - financial services
+    - semiconductor and technology
+    - manufacturing
+    - utilities
+    - FMCG
+    - government
+  tail: — in the United States, the United Kingdom, and internationally.
 cta:
   heading: Let's talk about what you're working on.
   body: >-

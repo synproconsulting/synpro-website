@@ -1,0 +1,101 @@
+/**
+ * Content-page tokens  (SWEB-25 / SWEB-27)
+ *
+ * WHY THIS FILE EXISTS, AND WHY THESE ARE NOT IN tokens.css.
+ *
+ * `build.inlineStylesheets: 'always'` inlines a page's whole CSS bundle into its HTML,
+ * and tokens.css is in the placeholder's bundle. Adding tokens there therefore changes
+ * `dist/index.html` even when the placeholder uses none of them — measured: the first
+ * attempt at Sprint 6 grew the front page from 8,805 to 9,701 bytes with `index.astro`
+ * untouched. Byte-identical front-page output is the sprint's hard constraint.
+ *
+ * So the Sprint 6 tokens live at the CONTENT LAYER instead. This file is imported by
+ * PageLayout.astro only — the same override pattern Sprint 5 used for the `global.css`
+ * footer leak, applied to tokens rather than to rules.
+ *
+ * These are still tokens: named custom properties on :root, no rules, consumed by
+ * pages.css. tokens.css remains the shared base and is unchanged.
+ *
+ * Expect this file to merge back into tokens.css at cutover, when the placeholder stops
+ * being the front page and there is no bundle left to protect.
+ */
+
+:root {
+  /* ---------------------------------------------------------------------
+   * CONTENT-PAGE HEADING SCALE  (SWEB-25)
+   *
+   * Deliberately SEPARATE from --text-h1/h2/h3 in tokens.css. Those were sized
+   * for a hero on a one-screen placeholder; content pages inherited the top of
+   * that scale and the result inverted the hierarchy — the page title rendered
+   * roughly three times the height of the brand lockup above it, so a visitor
+   * read "Start a conversation" before "SynPro Consulting".
+   *
+   * --text-h1 is now RESERVED FOR THE HOMEPAGE HERO. An interior page title and
+   * a homepage hero are different things and must not share a size.
+   *
+   * The interior ladder, measured at a 1280px viewport:
+   *   page title   33.3px   dominant over body, subordinate to the lockup
+   *   section      25.6px
+   *   card title   19.8px
+   *   body         16.8px   (--text-lg)
+   * ------------------------------------------------------------------- */
+  --text-page-title: clamp(1.75rem, 2.6vw, 2.35rem);
+  --text-section: clamp(1.35rem, 2vw, 1.75rem);
+  --text-card-title: clamp(1.15rem, 1.55vw, 1.4rem);
+
+  /* The header lockup. Sized to read as a brand, not a letterspaced label: the
+   * mark is larger and the wordmark takes --tracking-normal rather than
+   * --tracking-wide, which was spacing it into a caption. */
+  --brand-mark-width: clamp(6.5rem, 9vw, 8.5rem);
+  --text-brand: clamp(0.95rem, 1.15vw, 1.1rem);
+
+  /* ---------------------------------------------------------------------
+   * BACKGROUND FIELD  (SWEB-27)
+   *
+   * The placeholder's blue-to-green wash extended across the content pages.
+   * --ph-bg-gradient is NOT reused or modified: index.astro consumes it, and
+   * touching it would change the front page. These are new tokens.
+   *
+   * Applied to `body.page` as layered backgrounds that SCROLL with the document
+   * rather than being fixed to the viewport, so moving down a page moves through
+   * the palette — blue at the top, green at the bottom.
+   *
+   * Every stop is near-black by design. Measured against the four text tokens,
+   * the worst pairing on any stop is --on-dark-text-muted at 6.30:1, comfortably
+   * above the 4.5:1 body floor. Recompute before editing a stop.
+   * ------------------------------------------------------------------- */
+  --field-top: #0b1226; /* blue-leaning */
+  --field-upper: #0a1020;
+  --field-lower: #0a1119;
+  --field-bottom: #0a1512; /* green-leaning */
+
+  --bg-field: linear-gradient(
+    180deg,
+    var(--field-top) 0%,
+    var(--field-upper) 32%,
+    var(--field-lower) 64%,
+    var(--field-bottom) 100%
+  );
+
+  /* Soft brand glows, positioned against the document box so they travel with the
+   * page. Low alpha — they tint the field, they do not light it. */
+  --bg-glow-blue: radial-gradient(1200px 700px at 12% 2%, rgba(47, 111, 224, 0.1), transparent 62%);
+  --bg-glow-green: radial-gradient(
+    1100px 800px at 88% 98%,
+    rgba(58, 168, 12, 0.08),
+    transparent 62%
+  );
+
+  /* Blueprint-like grid. Deliberately at the threshold of visibility: measured on
+   * the rendered page it moves the effective background by at most one luminance
+   * step, so it costs no contrast. */
+  --bg-texture:
+    repeating-linear-gradient(0deg, rgba(234, 240, 251, 0.016) 0 1px, transparent 1px 4rem),
+    repeating-linear-gradient(90deg, rgba(234, 240, 251, 0.016) 0 1px, transparent 1px 4rem);
+
+  /* ---------------------------------------------------------------------
+   * MOTION — reveal  (SWEB-28)
+   * ------------------------------------------------------------------- */
+  --reveal-rise: 14px;
+  --reveal-duration: 0.55s;
+}

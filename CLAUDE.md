@@ -22,15 +22,22 @@ for planning and prompt authoring, Claude Code as the Dev Agent, a rule-based au
 **Owner:** Johan Wessels — SynPro Consulting
 **Started:** August 2026
 
-**Last PR merged:** #10 (SWEB-19 … SWEB-24 — Sprint 5, five real pages built behind the crawler
-lockout; front page unchanged).
+**Last PR merged:** #11 (SWEB-25 … SWEB-30 — Sprint 6, visual design and page rhythm; presentation
+only, no copy changed, front page unchanged).
 
-**Current state:** Sprint 5 complete. **Five real pages now exist** — `/services`, `/approach`,
-`/about`, `/contact`, and the real Home at the temporary route `/home-preview` — plus a 404. They
-are reachable only by typing the URL: there is no navigation, nothing links to them, and
-`robots.txt` still disallows every crawler (AD-10). **The site's front door has not changed.** The
-placeholder a visitor saw before Sprint 1 is *still exactly* what they see at `/` — verified
-pixel-identical at four viewports, byte-identical output — and it is built on a real foundation. `package.json`, `astro.config.mjs`, `src/`, `public/`, and
+**Current state:** Sprint 6 complete. **Five real pages exist and are now designed** —
+`/services`, `/approach`, `/about`, `/contact`, and the real Home at the temporary route
+`/home-preview`, plus a 404. They are reachable only by typing the URL: there is no navigation,
+nothing links to them, and `robots.txt` still disallows every crawler (AD-10). **The site's front
+door has not changed.** The placeholder a visitor saw before Sprint 1 is *still exactly* what they
+see at `/` — verified pixel-identical at four viewports, byte-identical output — and it is built on
+a real foundation.
+
+**Sprint 6 fixed the hierarchy and gave the pages rhythm, changing no copy.** The interior type
+scale is now separate from the hero scale so the brand outranks the page title; the six Services
+offerings render as a card grid inside their two practice areas; the placeholder's blue-to-green
+gradient extends across the content pages as a scrolling field; sections fade and rise on entry;
+and long pages carry in-page section markers. Full reference in `PROJECT_CONTEXT.md` §7. `package.json`, `astro.config.mjs`, `src/`, `public/`, and
 `.github/workflows/ci.yml` all exist; three blocking CI checks (`build`, `format`, `links`) gate a
 ported rule-based auto-merger. DNS is configured at Namecheap (four GitHub Pages apex A records +
 `www` CNAME) and TLS is issued. The site is crawler-locked by `public/robots.txt` until the cutover
@@ -320,7 +327,7 @@ a defined removal point, not a permanent setting. Full text in `PROJECT_CONTEXT.
 
 ---
 
-## Project Structure (actual — as of Sprint 5)
+## Project Structure (actual — as of Sprint 6)
 
 ```
 synpro-website/
@@ -347,11 +354,14 @@ synpro-website/
 │   │   ├── BaseLayout.astro  # <head>, style imports, <body class={bodyClass}>, <slot />
 │   │   └── PageLayout.astro  # Content-page shell: skip link, header, main, footer. No nav.
 │   ├── styles/               # The design system (SWEB-13)
-│   │   ├── tokens.css        # Every custom property. No rules.
+│   │   ├── tokens.css        # Shared base tokens. Reaches the PLACEHOLDER — see below
+│   │   ├── tokens-content.css # Content-only tokens (SWEB-25/27). PageLayout ONLY
 │   │   ├── fonts.css         # Single @font-face — self-hosted Sora
 │   │   ├── global.css        # Reset, base, focus, placeholder rules
 │   │   └── pages.css         # Content-page rules (SWEB-19). Imported by PageLayout ONLY
 │   └── components/           # Empty (.gitkeep) — populated as sections are built
+├── scripts/
+│   └── check-links.mjs       # The `links` job (SWEB-30) — every built page, not a crawl
 ├── public/                   # Static passthrough — copied verbatim into dist/
 │   ├── CNAME                 # CRITICAL — custom domain; must survive every build
 │   ├── robots.txt            # Disallow-all crawler lockout until cutover (AD-10)
@@ -394,6 +404,11 @@ synpro-website/
 > lives at `/home-preview` until the cutover PR promotes it. Editing `index.astro` publishes a
 > half-built site to the live domain — the one outcome AD-10 exists to prevent.
 
+> **A token added to `tokens.css` changes the front page even if the placeholder never uses it.**
+> `inlineStylesheets: 'always'` inlines each page's whole bundle, and `tokens.css` is in the
+> placeholder's. Content-only tokens go in `tokens-content.css`, which `PageLayout` imports.
+> `PROJECT_CONTEXT.md` §7 has the measurement.
+
 > **All page copy lives in `src/content/`, not in components.** A wording change is a content edit.
 > `src/content/pages/contact.md` is also the contact-form specification — the Worker will validate
 > against its enquiry values and messages, so treat those strings as an interface.
@@ -417,8 +432,8 @@ synpro-website/
 | Sprint field | `customfield_10020` |
 | Story points field | **`customfield_10036`** ("Story Points") |
 | Execution order field | `customfield_10071` |
-| Sprint fix version IDs | Sprint 1 → `11066` · Sprint 2 → `11099` · Sprint 3 → `11100` · Sprint 4 → `11101` · Sprint 5 → `11102` |
-| Native sprint IDs | Sprint 1 → `1039` · Sprint 2 → `1072` · Sprint 3 → `1073` · Sprint 4 → `1074` · Sprint 5 → `1075` |
+| Sprint fix version IDs | Sprint 1 → `11066` · Sprint 2 → `11099` · Sprint 3 → `11100` · Sprint 4 → `11101` · Sprint 5 → `11102` · Sprint 6 → `11103` |
+| Native sprint IDs | Sprint 1 → `1039` · Sprint 2 → `1072` · Sprint 3 → `1073` · Sprint 4 → `1074` · Sprint 5 → `1075` · Sprint 6 → `1076` |
 
 > **Story points is `customfield_10036`, not `customfield_10016`.** SWEB is a company-managed
 > project and board 100's configured estimation field is `customfield_10036` ("Story Points").
@@ -453,7 +468,7 @@ stale, the auto-merger merges on nothing.**
 |---|---|---|
 | `build` | `npm ci`, `npm run build`, then asserts `dist/CNAME` exists and equals `synproconsulting.co` **and** that `-webkit-background-clip` accompanies any `-webkit-text-fill-color` (SWEB-16); uploads `dist/` as an artifact | **Yes** |
 | `format` | `prettier --check` across `src/` and the root config files | **Yes** |
-| `links` | Downloads the `build` artifact and runs linkinator over it; internal links only | **Yes** |
+| `links` | Downloads the `build` artifact and runs `scripts/check-links.mjs` over it — every built page as an explicit starting point, not a crawl from `/` (SWEB-30); internal links only | **Yes** |
 | `deploy` | Publishes the artifact to GitHub Pages (`main` only, `continue-on-error: true`) | No |
 | `auto-merge` | `needs: [build, format, links]` — squash-merges the PR (non-`main` only) | n/a |
 
@@ -514,13 +529,15 @@ provider's secret store, edited manually.
 - **Cloudflare Worker not yet created.** The contact form has no endpoint. The Contact page's form
   is built and validates client-side, but submission is disabled — a valid submission shows the
   specified failure message. Until the sprint that takes it, the site has no working contact path.
-- **The `links` check cannot reach the five new pages.** linkinator crawls outward from `dist/`
-  root, and nothing links to `/services`, `/approach`, `/about`, `/contact`, or `/home-preview` —
-  by design, because there is no nav until cutover (AD-10). It still reports success having scanned
-  5 links, all on the placeholder. **A broken internal link on a content page would not fail CI
-  today.** This is the Sprint 1 "green and inert" pattern in a new place. It resolves itself at
-  cutover when nav links every page; until then, internal references on new pages must be checked
-  by hand. Sprint 5 verified every one resolves.
+- **`dist/services/index.html` carries a measured CLS of 0.0341, caused by `font-display: swap`.**
+  *(Found and diagnosed in Sprint 6; the mechanism is Sprint 3's.)* The fallback font renders,
+  Sora swaps in, and text reflows. Bisected: it is **not** the scroll reveal and **not** the card
+  grid — blocking the `.woff2` drops the page to 0.0000, consistently across runs, while every
+  other route is already 0.0000. 0.034 is inside Google's "good" band (< 0.1).
+  **It was not fixed, deliberately.** The fixes — `font-display: optional`, or a metric-matched
+  fallback `@font-face` — both mean editing `fonts.css`, which is inlined into the placeholder's
+  bundle and would break the byte-identical front-page guarantee. **Do this at cutover**, when
+  `fonts.css` stops being shared with the placeholder.
 - **A `--window-size` below 500px does not do what it looks like on Windows.** Chrome clamps the
   window to a 500 CSS-px minimum, so `chrome --headless --window-size=375,812 --screenshot`
   produces a 375px-wide *crop of a 500px layout* — pages look broken when they are not. Sprint 5
@@ -549,6 +566,17 @@ provider's secret store, edited manually.
 
 Kept because each cost real time to diagnose, and a future session finding a trace of one needs to
 know it was closed rather than re-open the investigation.
+
+- **The `links` check could not reach the five content pages.** *(Resolved by SWEB-30, Sprint 6.)*
+  linkinator crawls outward from `/`, and nothing links to the content pages by design — there is
+  no nav until cutover (AD-10) — so it passed having scanned **5 links, all on the placeholder**,
+  and a broken internal reference anywhere else would not have failed CI. This was the project's
+  fifth green-but-inert control. `npm run links` now runs `scripts/check-links.mjs`, which
+  enumerates every `.html` in `dist/` and hands linkinator each as an explicit starting point; the
+  route list is **derived from the build**, so a page added later is covered the day it exists.
+  **59 links across 7 routes**, up from 5. Negative-tested: a deliberately broken reference exits
+  1 and names the referring page. No navigation was added — the checker got the routes, the site
+  did not.
 
 - **Pages source setting contradicted what was actually serving.** *(Resolved — owner action, after
   Sprint 1 closed.)* Through Sprint 1 the `deploy` job succeeded and the Actions artifact served

@@ -35,7 +35,7 @@ const message = field('message');
 <PageLayout title={title} seoTitle={seoTitle} seoDescription={seoDescription} intro={intro}>
   <div class="contact-layout">
     <!-- D6: the form is visually primary; the address is plain text in the aside. -->
-    <form class="form" id="contact-form" novalidate>
+    <form class="form reveal" id="contact-form" novalidate>
       <div class="field">
         <label class="field__label" for="name">{name.label}</label>
         <input
@@ -124,7 +124,7 @@ const message = field('message');
       <p class="form__status" id="form-status" role="status" aria-live="polite"></p>
     </form>
 
-    <aside class="contact-aside">
+    <aside class="contact-aside reveal">
       <div>
         <h2 class="contact-aside__heading">Email</h2>
         <p class="contact-aside__value">{email}</p>

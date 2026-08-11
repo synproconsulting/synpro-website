@@ -817,6 +817,119 @@ Previously listed here as "still to establish". They arrived with the pages that
 - **Call-to-action labels that are not links** — rendered as accent text, not as buttons. Nothing
   links out yet (AD-10), and a button that does nothing is worse than a label.
 
+### Two token layers, and why  *(SWEB-25 / SWEB-27)*
+
+| File | Reaches | Contains |
+|---|---|---|
+| `src/styles/tokens.css` | every page, **including the placeholder** | the shared base |
+| `src/styles/tokens-content.css` | content pages only, via `PageLayout` | Sprint 6's type scale, background field, and motion tokens |
+
+**Adding a token to `tokens.css` changes `dist/index.html` even if the placeholder never
+uses it.** `build.inlineStylesheets: 'always'` inlines each page's whole bundle, and
+`tokens.css` is in the placeholder's. Measured: the first attempt at Sprint 6 grew the front
+page from 8,805 to 9,701 bytes with `index.astro` untouched. Byte-identical front-page output
+is a hard constraint until cutover, so content-only tokens live at the content layer — the same
+override pattern Sprint 5 used for the `global.css` footer leak, applied to tokens rather than
+rules.
+
+> **Expect `tokens-content.css` to merge back into `tokens.css` at cutover**, when the
+> placeholder stops being the front page and there is no bundle left to protect.
+
+### Content-page type scale — distinct from the hero scale  *(SWEB-25)*
+
+**The principle: an interior page title and a homepage hero are different things and must not
+share a size.** Sprint 3's scale was sized for a hero on a one-screen placeholder; the content
+pages built in Sprint 5 inherited the top of it, and the result inverted the hierarchy — the
+page title rendered roughly three times the height of the brand lockup, so a visitor read
+"Start a conversation" before "SynPro Consulting".
+
+`--text-h1` is now **reserved for `/home-preview/`**. Interior pages use their own ladder:
+
+| Token | Clamp | At 1280px | Used by |
+|---|---|---|---|
+| `--text-page-title` | `clamp(1.75rem, 2.6vw, 2.35rem)` | 33.3px | interior `h1` |
+| `--text-section` | `clamp(1.35rem, 2vw, 1.75rem)` | 25.6px | `h2`, practice names |
+| `--text-card-title` | `clamp(1.15rem, 1.55vw, 1.4rem)` | 19.8px | `h3`, card titles |
+| `--text-lg` | *(unchanged)* | 16.8px | body |
+
+Before and after at 1280px: interior `h1` **51.2px → 33.3px**; header mark **96px → 136px**
+wide; wordmark **13.1px `--tracking-wide` → 17.6px bold `--tracking-normal`**. The wide
+tracking was spacing the wordmark into a caption rather than a brand.
+
+### The card pattern  *(SWEB-26)*
+
+Offerings render as a one-column grid that becomes two columns from `--bp-lg`. Each card is
+`--surface-raised` with a `--surface-glow` hairline and `--radius-lg`; the practice above it
+carries an accent rule and eyebrow so **a reader sees two practices, not one list of six**.
+
+- **Deliverables are structured items, not bullets** — `list-style: none` with a rotated square
+  in the accent as the marker, which reads as a spec sheet rather than prose.
+- **All content stays in the HTML.** Nothing is behind hover or click; it stays searchable with
+  Ctrl+F, crawlable, and available to assistive technology.
+- **The independence disclosure is a distinguished panel** — accent spine, `--surface-glow`,
+  accent heading, and the spiral mark as a low-opacity motif.
+- **No stock photography**, by decision. Cards are typography, palette, and geometry.
+
+> **Do not pair `align-items: start` on the grid with `height: 100%` on the card.** That
+> resolves a percentage height against an indefinite track and costs a second layout pass —
+> measured at 0.034 CLS before it was removed. Grid items stretch by default, which is what
+> makes a row's cards equal height and lets `margin-top: auto` sit the who-it's-for line at the
+> bottom.
+
+### Background field  *(SWEB-27)*
+
+Defined in `tokens-content.css` and applied to `body.page` as layered backgrounds that **scroll
+with the document** — no `background-attachment: fixed` — so moving down a page moves through
+the palette: `--field-top` blue-leaning at 0%, through two neutral stops, to `--field-bottom`
+green-leaning at 100%. Over it sit two low-alpha brand glows and a blueprint grid at
+`rgba(234,240,251,0.016)`.
+
+**`--ph-bg-gradient` is not reused or modified.** `index.astro` consumes it; touching it would
+change the front page.
+
+**Contrast is verified against the rendered composite, not against a token.** A gradient means
+the nominal value is not what is behind the text. The method, which should be repeated whenever
+the field changes: re-render each page with all text and borders made transparent, capture it
+full-page, then sample the real background at each element's own box and compute the ratio
+against that element's computed colour — taking the lightest pixel in a small patch, so a grid
+line or a glow edge is what the ratio is judged on. Measured across `/services/` and
+`/home-preview/`, **every pairing passes AA; the worst is 5.71:1** (`--on-dark-text-muted` on a
+green-leaning footer region).
+
+### Motion  *(SWEB-28)*
+
+Sections fade and rise as they enter the viewport, via an `IntersectionObserver`, once per
+element. **Three things make it safe, and all three are load-bearing:**
+
+1. The hidden state is gated on `html.js`, a class an inline `<head>` script adds. **With
+   JavaScript disabled the class never appears and nothing is hidden by CSS alone** — verified
+   by rendering with scripting disabled and finding it pixel-identical to the reduced-motion
+   render.
+2. It is gated on `prefers-reduced-motion: no-preference`. Under `reduce` the rule does not
+   exist, so there is no animation **and no hidden state**. This is a WCAG 2.2 AA requirement.
+3. Only `opacity` and `transform` animate, so no layout box moves.
+
+Elements already in the viewport at load are marked visible **synchronously by an `is:inline`
+end-of-body script**, before first paint — which is why there is no flash of empty page. Astro
+would otherwise hoist the script into a deferred module that runs after paint.
+
+> **A full-page screenshot of a page using the reveal renders unrevealed content as blank**,
+> because elements below the viewport never intersect it. That is a capture artifact, not a
+> defect — but it means a full-page screenshot alone is no longer sufficient evidence on these
+> pages. Capture with reduced motion emulated, which disables the reveal and doubles as the
+> WCAG check. See `RUNBOOK.md` §6.
+
+### Section markers  *(SWEB-29)*
+
+A fixed rail of in-page anchors on `/services/` and `/approach/`, showing the current section.
+**Every `href` starts with `#`. Nothing links to another page** — this is not site navigation
+and AD-10 still holds. The rail is the only `<nav>` on the site, labelled "On this page".
+
+Shown from `--bp-xl`. Labels are screen-reader only until `100rem`: at 1280 the 1200px
+container leaves ~40px of gutter, and a text label there overlapped the copy it exists to
+index. The active marker lengthens by **`scaleX`, not `width`** — animating width relaid out
+the rail and registered as a layout shift.
+
 ### Still to establish
 
 Logo clear-space rules, and the navigation treatment — which arrives with the cutover PR.
